@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8">
     <title>Login and Registration</title>
-    <link rel="stylesheet" href="login.css">
+    <link rel="stylesheet" href="assets/css/login.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
    <script>
@@ -33,14 +33,14 @@
       <input type="checkbox" id="flip">
       <div class="cover">
         <div class="front">
-          <img src="frontImg.jpg" alt="Front Image">
+          <img src="uploads/frontImg.jpg" alt="Front Image">
           <div class="text">
             <span class="text-1">Every new friend is a <br> new adventure</span>
             <span class="text-2">Let's get connected</span>
           </div>
         </div>
         <div class="back">
-          <img class="backImg" src="backImg.jpg" alt="Back Image">
+          <img class="backImg" src="uploads/backImg.jpg" alt="Back Image">
           <div class="text">
             <span class="text-1">Complete miles of journey <br> with one step</span>
             <span class="text-2">Let's get started</span>
