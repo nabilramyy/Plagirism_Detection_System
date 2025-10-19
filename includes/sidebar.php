@@ -1,0 +1,43 @@
+<?php
+session_start();
+$current = $_GET['page'] ?? 'home';
+$adminName = $_SESSION['admin_name'] ?? 'Admin User';
+?>
+<aside class="sidebar" id="sidebar">
+  <div class="logo"> ⚙️ </div>
+
+  <div class="admin-profile">
+    <div class="admin-avatar"><?= strtoupper($adminName[0]) ?></div>
+    <div class="admin-info">
+      <span class="admin-name"><?= htmlspecialchars($adminName) ?></span>
+      <span class="admin-role">Administrator</span>
+    </div>
+  </div>
+
+  <nav class="nav">
+    <a href="index.php?page=home" class="nav-item <?= $current=='home' ? 'active' : '' ?>">
+      <i class="fas fa-home"></i><span>Home</span>
+    </a>
+
+    <a href="index.php?page=user_management" class="nav-item <?= $current=='user_management' ? 'active' : '' ?>">
+      <i class="fas fa-users"></i><span>User Management</span>
+    </a>
+
+    <a href="index.php?page=course_management" class="nav-item <?= $current=='course_management' ? 'active' : '' ?>">
+      <i class="fas fa-book"></i><span>Course Management</span>
+    </a>
+
+    <a href="index.php?page=submissions_overview" class="nav-item <?= $current=='submissions_overview' ? 'active' : '' ?>">
+      <i class="fas fa-file-alt"></i><span>Submissions</span>
+    </a>
+
+    <a href="index.php?page=system_settings" class="nav-item <?= $current=='system_settings' ? 'active' : '' ?>">
+      <i class="fas fa-cog"></i><span>System Settings</span>
+    </a>
+  </nav>
+  <div class="logout-section">
+    <a href="logout.php" class="logout-btn">
+      <i class="fas fa-sign-out-alt"></i><span>Logout</span>
+    </a>
+  </div>
+</aside>
