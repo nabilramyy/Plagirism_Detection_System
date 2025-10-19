@@ -1,60 +1,16 @@
-<?php
-// Dummy data for courses (frontend only - no backend)
-$courses = [
-  [
-    'id' => 1,
-    'code' => 'CS101',
-    'name' => 'Introduction to Programming',
-    'department' => 'Computer Science',
-    'term' => 'Fall 2024',
-    'instructors_count' => 2,
-    'students_count' => 45
-  ],
-  [
-    'id' => 2,
-    'code' => 'ENG201',
-    'name' => 'Academic Writing',
-    'department' => 'English',
-    'term' => 'Fall 2024',
-    'instructors_count' => 1,
-    'students_count' => 32
-  ],
-  [
-    'id' => 3,
-    'code' => 'MATH150',
-    'name' => 'Calculus I',
-    'department' => 'Mathematics',
-    'term' => 'Spring 2025',
-    'instructors_count' => 3,
-    'students_count' => 60
-  ],
-];
-
-// Dummy instructors list
-$instructors = [
-  ['id' => 1, 'name' => 'Dr. Ahmed Mohamed', 'email' => 'ahmed@university.edu'],
-  ['id' => 2, 'name' => 'Prof. Sara Ali', 'email' => 'sara@university.edu'],
-  ['id' => 3, 'name' => 'Dr. Omar Hassan', 'email' => 'omar@university.edu'],
-  ['id' => 4, 'name' => 'Dr. Fatma Ibrahim', 'email' => 'fatma@university.edu'],
-];
-?>
-
 <section class="course-management">
   <h2>Course Management 📚</h2>
 
-  <!-- Success/Error Messages -->
-  <?php if (isset($_GET['course_added'])): ?>
-    <div class="notice success">✅ Course created successfully!</div>
-  <?php endif; ?>
+  <div id="courseNotification" class="notice" style="display:none;"></div>
 
   <!-- Add New Course Form -->
   <div class="add-user-form">
     <h3>Create New Course ➕</h3>
-    <form method="POST" action="#" class="add-form" onsubmit="event.preventDefault(); alert('Frontend only - Backend not implemented yet');">
-      <input type="text" name="course_code" placeholder="Course Code (e.g., CS101)" required>
-      <input type="text" name="course_name" placeholder="Course Name" required>
-      <input type="text" name="department" placeholder="Department" required>
-      <select name="term" required>
+    <form id="addCourseForm" class="add-form" onsubmit="addCourse(event)">
+      <input type="text" id="newCourseCode" placeholder="Course Code (e.g., CS101)" required>
+      <input type="text" id="newCourseName" placeholder="Course Name" required>
+      <input type="text" id="newDepartment" placeholder="Department" required>
+      <select id="newTerm" required>
         <option value="">Select Term</option>
         <option value="Fall 2024">Fall 2024</option>
         <option value="Spring 2025">Spring 2025</option>
@@ -75,141 +31,95 @@ $instructors = [
           <th>Department</th>
           <th>Term</th>
           <th>Instructors</th>
-          <th>Students</th>
           <th>Actions</th>
         </tr>
       </thead>
-      <tbody>
-        <?php foreach ($courses as $course): ?>
-        <tr>
-          <td><strong><?= htmlspecialchars($course['code']) ?></strong></td>
-          <td><?= htmlspecialchars($course['name']) ?></td>
-          <td><?= htmlspecialchars($course['department']) ?></td>
-          <td><?= htmlspecialchars($course['term']) ?></td>
-          <td><span class="badge"><?= $course['instructors_count'] ?> Assigned</span></td>
-          <td><span class="badge"><?= $course['students_count'] ?> Enrolled</span></td>
-          <td>
-            <button class="btn small" onclick="viewCourseDetails(<?= $course['id'] ?>)">👁️ View</button>
-            <button class="btn small" onclick="editCourse(<?= $course['id'] ?>)">✏️ Edit</button>
-            <button class="btn small danger" onclick="if(confirm('Delete this course?')) alert('Frontend only')">🗑️ Delete</button>
-          </td>
-        </tr>
-        <?php endforeach; ?>
+      <tbody id="coursesTableBody">
+        <!-- Courses will be loaded here by JavaScript -->
       </tbody>
     </table>
   </div>
-
-  <!-- Course Details Modal (Hidden by default) -->
-  <div id="courseDetailsModal" class="modal" style="display: none;">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h3>Course Details</h3>
-        <button class="close-btn" onclick="closeModal()">&times;</button>
-      </div>
-      <div class="modal-body">
-        <div class="course-info-section">
-          <h4>📖 Course Information</h4>
-          <p><strong>Code:</strong> <span id="modalCourseCode">CS101</span></p>
-          <p><strong>Name:</strong> <span id="modalCourseName">Introduction to Programming</span></p>
-          <p><strong>Department:</strong> <span id="modalDepartment">Computer Science</span></p>
-          <p><strong>Term:</strong> <span id="modalTerm">Fall 2024</span></p>
-        </div>
-
-        <div class="instructors-section">
-          <h4>👨‍🏫 Assigned Instructors (2)</h4>
-          <button class="btn small primary" onclick="openAssignInstructorModal()">+ Assign Instructor</button>
-          <div class="instructors-list">
-            <div class="instructor-item">
-              <div>
-                <strong>Dr. Ahmed Mohamed</strong><br>
-                <small>ahmed@university.edu</small><br>
-                <small class="text-muted">Assigned: Oct 1, 2024</small>
-              </div>
-              <button class="btn small danger" onclick="if(confirm('Remove instructor?')) alert('Frontend only')">Remove</button>
-            </div>
-            <div class="instructor-item">
-              <div>
-                <strong>Prof. Sara Ali</strong><br>
-                <small>sara@university.edu</small><br>
-                <small class="text-muted">Assigned: Oct 1, 2024</small>
-              </div>
-              <button class="btn small danger" onclick="if(confirm('Remove instructor?')) alert('Frontend only')">Remove</button>
-            </div>
-          </div>
-        </div>
-
-        <div class="students-section">
-          <h4>👥 Enrolled Students (45)</h4>
-          <button class="btn small primary" onclick="alert('Enroll student feature - Frontend only')">+ Enroll Student</button>
-          <button class="btn small" onclick="alert('Bulk enroll feature - Frontend only')">📄 Bulk Enroll (CSV)</button>
-          <div class="students-list">
-            <div class="student-item">
-              <div>
-                <strong>Ahmed Hassan</strong><br>
-                <small>ahmed.hassan@student.edu</small><br>
-                <small class="text-muted">Enrolled: Sep 15, 2024 | Submissions: 3</small>
-              </div>
-              <button class="btn small danger" onclick="if(confirm('Remove student?')) alert('Frontend only')">Remove</button>
-            </div>
-            <div class="student-item">
-              <div>
-                <strong>Fatma Ali</strong><br>
-                <small>fatma.ali@student.edu</small><br>
-                <small class="text-muted">Enrolled: Sep 15, 2024 | Submissions: 5</small>
-              </div>
-              <button class="btn small danger" onclick="if(confirm('Remove student?')) alert('Frontend only')">Remove</button>
-            </div>
-            <div class="student-item">
-              <div>
-                <strong>Mohamed Omar</strong><br>
-                <small>mohamed.omar@student.edu</small><br>
-                <small class="text-muted">Enrolled: Sep 16, 2024 | Submissions: 2</small>
-              </div>
-              <button class="btn small danger" onclick="if(confirm('Remove student?')) alert('Frontend only')">Remove</button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Assign Instructor Modal -->
-  <div id="assignInstructorModal" class="modal" style="display: none;">
-    <div class="modal-content small">
-      <div class="modal-header">
-        <h3>Assign Instructor</h3>
-        <button class="close-btn" onclick="closeAssignModal()">&times;</button>
-      </div>
-      <div class="modal-body">
-        <form onsubmit="event.preventDefault(); alert('Frontend only - Backend not implemented'); closeAssignModal();">
-          <label>Search Instructor:</label>
-          <input type="text" placeholder="Type name or email..." class="search-input">
-          
-          <div class="instructor-select-list">
-            <?php foreach ($instructors as $inst): ?>
-            <label class="instructor-option">
-              <input type="checkbox" name="instructor[]" value="<?= $inst['id'] ?>">
-              <span>
-                <strong><?= htmlspecialchars($inst['name']) ?></strong><br>
-                <small><?= htmlspecialchars($inst['email']) ?></small>
-              </span>
-            </label>
-            <?php endforeach; ?>
-          </div>
-
-          <div style="margin-top: 15px;">
-            <button type="submit" class="btn primary">Assign Selected</button>
-            <button type="button" class="btn" onclick="closeAssignModal()">Cancel</button>
-          </div>
-        </form>
-      </div>
-    </div>
-  </div>
-
 </section>
 
+<!-- Course Details Modal -->
+<div id="courseDetailsModal" class="modal" style="display: none;">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>📖 Course Details</h3>
+      <button class="close-btn" onclick="closeCourseModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="course-info-section">
+        <h4>Course Information</h4>
+        <p><strong>Code:</strong> <span id="modalCourseCode"></span></p>
+        <p><strong>Name:</strong> <span id="modalCourseName"></span></p>
+        <p><strong>Department:</strong> <span id="modalDepartment"></span></p>
+        <p><strong>Term:</strong> <span id="modalTerm"></span></p>
+      </div>
+
+      <div class="instructors-section">
+        <h4>👨‍🏫 Assigned Instructors</h4>
+        <button class="btn small primary" onclick="openAssignInstructorModal()">+ Assign Instructor</button>
+        <div class="instructors-list" id="modalInstructorsList"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Course Modal -->
+<div id="editCourseModal" class="modal" style="display: none;">
+  <div class="modal-content small">
+    <div class="modal-header">
+      <h3>✏️ Edit Course</h3>
+      <button class="close-btn" onclick="closeEditCourseModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <form id="editCourseForm" onsubmit="saveCourseEdit(event)">
+        <input type="hidden" id="editCourseId">
+        
+        <label>Course Code</label>
+        <input type="text" id="editCourseCode" class="edit-input" required>
+
+        <label>Course Name</label>
+        <input type="text" id="editCourseName" class="edit-input" required>
+
+        <label>Department</label>
+        <input type="text" id="editDepartment" class="edit-input" required>
+
+        <label>Term</label>
+        <select id="editTerm" class="edit-input" required>
+          <option value="Fall 2024">Fall 2024</option>
+          <option value="Spring 2025">Spring 2025</option>
+          <option value="Summer 2025">Summer 2025</option>
+        </select>
+
+        <div style="margin-top: 20px; display: flex; gap: 10px;">
+          <button type="submit" class="btn primary">💾 Save Changes</button>
+          <button type="button" class="btn" onclick="closeEditCourseModal()">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Assign Instructor Modal -->
+<div id="assignInstructorModal" class="modal" style="display: none;">
+  <div class="modal-content small">
+    <div class="modal-header">
+      <h3>Assign Instructor</h3>
+      <button class="close-btn" onclick="closeAssignInstructorModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="instructor-select-list" id="instructorSelectList"></div>
+      <div style="margin-top: 15px;">
+        <button class="btn primary" onclick="assignSelectedInstructors()">Assign Selected</button>
+        <button class="btn" onclick="closeAssignInstructorModal()">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <style>
-/* Table Styles */
 .courses-table-container {
   margin-top: 20px;
   background: rgba(255,255,255,0.02);
@@ -255,21 +165,6 @@ $instructors = [
   font-weight: 600;
 }
 
-/* Modal Styles */
-.modal {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0,0,0,0.7);
-  backdrop-filter: blur(4px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
 .modal-content {
   background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.03));
   border-radius: 16px;
@@ -280,44 +175,8 @@ $instructors = [
   box-shadow: 0 20px 60px rgba(0,0,0,0.5);
 }
 
-.modal-content.small {
-  max-width: 500px;
-}
-
-.modal-header {
-  padding: 20px;
-  border-bottom: 1px solid rgba(255,255,255,0.08);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.modal-header h3 {
-  margin: 0;
-  color: #fff;
-}
-
-.close-btn {
-  background: none;
-  border: none;
-  color: #fff;
-  font-size: 28px;
-  cursor: pointer;
-  transition: transform 0.2s;
-}
-
-.close-btn:hover {
-  transform: rotate(90deg);
-  color: #ff5a6b;
-}
-
-.modal-body {
-  padding: 20px;
-}
-
 .course-info-section,
-.instructors-section,
-.students-section {
+.instructors-section {
   margin-bottom: 25px;
   padding: 15px;
   background: rgba(255,255,255,0.02);
@@ -325,17 +184,12 @@ $instructors = [
 }
 
 .course-info-section h4,
-.instructors-section h4,
-.students-section h4 {
+.instructors-section h4 {
   color: var(--accent1);
   margin-bottom: 12px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
 }
 
-.instructor-item,
-.student-item {
+.instructor-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -343,40 +197,17 @@ $instructors = [
   margin: 8px 0;
   background: rgba(255,255,255,0.03);
   border-radius: 8px;
-  transition: background 0.2s;
 }
 
-.instructor-item:hover,
-.student-item:hover {
-  background: rgba(255,255,255,0.05);
-}
-
-.text-muted {
-  color: #a7b7d6;
-  font-size: 11px;
-}
-
-.instructors-list,
-.students-list {
+.instructors-list {
   margin-top: 10px;
   max-height: 200px;
   overflow-y: auto;
 }
 
-.search-input {
-  width: 100%;
-  padding: 10px;
-  border-radius: 8px;
-  border: none;
-  background: rgba(255,255,255,0.05);
-  color: #fff;
-  margin-bottom: 15px;
-}
-
 .instructor-select-list {
   max-height: 300px;
   overflow-y: auto;
-  margin-top: 10px;
 }
 
 .instructor-option {
@@ -388,7 +219,6 @@ $instructors = [
   border-radius: 8px;
   margin-bottom: 8px;
   cursor: pointer;
-  transition: background 0.2s;
 }
 
 .instructor-option:hover {
@@ -403,35 +233,323 @@ $instructors = [
 </style>
 
 <script>
+// Hardcoded data
+let courses = [
+  { 
+    id: 1, 
+    code: 'CS101', 
+    name: 'Introduction to Programming', 
+    department: 'Computer Science', 
+    term: 'Fall 2024',
+    instructors: [4] // instructor IDs
+  },
+  { 
+    id: 2, 
+    code: 'ENG201', 
+    name: 'Academic Writing', 
+    department: 'English', 
+    term: 'Fall 2024',
+    instructors: [5]
+  },
+  { 
+    id: 3, 
+    code: 'MATH150', 
+    name: 'Calculus I', 
+    department: 'Mathematics', 
+    term: 'Spring 2025',
+    instructors: [4, 5]
+  },
+];
+
+let nextCourseId = 4;
+let currentCourseId = null;
+
+// Get users from localStorage
+function getUsers() {
+  const saved = localStorage.getItem('users');
+  if (saved) {
+    return JSON.parse(saved).users;
+  }
+  // Fallback hardcoded users
+  return [
+    { id: 4, name: 'Dr. Ahmed Mohamed', email: 'ahmed.m@university.edu', role: 'instructor' },
+    { id: 5, name: 'Prof. Sara Ali', email: 'sara.ali@university.edu', role: 'instructor' },
+  ];
+}
+
+// Load from localStorage
+function loadCourses() {
+  const saved = localStorage.getItem('courses');
+  if (saved) {
+    const data = JSON.parse(saved);
+    courses = data.courses;
+    nextCourseId = data.nextCourseId;
+  }
+}
+
+// Save to localStorage
+function saveCourses() {
+  localStorage.setItem('courses', JSON.stringify({
+    courses: courses,
+    nextCourseId: nextCourseId
+  }));
+  
+  // Update dashboard
+  const totalCourses = document.getElementById('totalCourses');
+  if (totalCourses) {
+    totalCourses.textContent = courses.length;
+  }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  loadCourses();
+  renderCourses();
+});
+
+function renderCourses() {
+  const tbody = document.getElementById('coursesTableBody');
+  
+  if (courses.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#a7b7d6;padding:20px;">No courses yet. Create one above!</td></tr>';
+    return;
+  }
+  
+  tbody.innerHTML = courses.map(course => {
+    const instructorCount = course.instructors.length;
+    
+    return `
+      <tr>
+        <td><strong>${course.code}</strong></td>
+        <td>${course.name}</td>
+        <td>${course.department}</td>
+        <td>${course.term}</td>
+        <td><span class="badge">${instructorCount} Assigned</span></td>
+        <td>
+          <button class="btn small" onclick="viewCourseDetails(${course.id})">👁️ View</button>
+          <button class="btn small" onclick="openEditCourseModal(${course.id})">✏️ Edit</button>
+          <button class="btn small danger" onclick="deleteCourse(${course.id})">🗑️ Delete</button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function addCourse(event) {
+  event.preventDefault();
+  
+  const code = document.getElementById('newCourseCode').value.trim();
+  const name = document.getElementById('newCourseName').value.trim();
+  const department = document.getElementById('newDepartment').value.trim();
+  const term = document.getElementById('newTerm').value;
+
+  // Check for duplicate course code
+  if (courses.find(c => c.code.toLowerCase() === code.toLowerCase())) {
+    showCourseNotification('⚠️ Course code already exists!', 'error');
+    return;
+  }
+
+  const newCourse = {
+    id: nextCourseId++,
+    code: code,
+    name: name,
+    department: department,
+    term: term,
+    instructors: []
+  };
+
+  courses.push(newCourse);
+  saveCourses();
+
+  document.getElementById('addCourseForm').reset();
+  renderCourses();
+  showCourseNotification('✅ Course created successfully!', 'success');
+}
+
 function viewCourseDetails(courseId) {
+  currentCourseId = courseId;
+  const course = courses.find(c => c.id === courseId);
+  if (!course) return;
+
+  document.getElementById('modalCourseCode').textContent = course.code;
+  document.getElementById('modalCourseName').textContent = course.name;
+  document.getElementById('modalDepartment').textContent = course.department;
+  document.getElementById('modalTerm').textContent = course.term;
+
+  // Load instructors
+  const users = getUsers();
+  const instructors = course.instructors.map(id => users.find(u => u.id === id)).filter(u => u);
+  
+  document.getElementById('modalInstructorsList').innerHTML = instructors.length > 0 
+    ? instructors.map(inst => `
+      <div class="instructor-item">
+        <div>
+          <strong>${inst.name}</strong><br>
+          <small>${inst.email}</small>
+        </div>
+        <button class="btn small danger" onclick="removeInstructor(${courseId}, ${inst.id})">Remove</button>
+      </div>
+    `).join('')
+    : '<p style="color:#a7b7d6;padding:10px;">No instructors assigned yet.</p>';
+
   document.getElementById('courseDetailsModal').style.display = 'flex';
 }
 
-function closeModal() {
+function closeCourseModal() {
   document.getElementById('courseDetailsModal').style.display = 'none';
+  currentCourseId = null;
 }
 
-function editCourse(courseId) {
-  alert('Edit course #' + courseId + ' - Frontend only (Backend not implemented)');
+function openEditCourseModal(courseId) {
+  const course = courses.find(c => c.id === courseId);
+  if (!course) return;
+
+  document.getElementById('editCourseId').value = course.id;
+  document.getElementById('editCourseCode').value = course.code;
+  document.getElementById('editCourseName').value = course.name;
+  document.getElementById('editDepartment').value = course.department;
+  document.getElementById('editTerm').value = course.term;
+
+  document.getElementById('editCourseModal').style.display = 'flex';
+}
+
+function closeEditCourseModal() {
+  document.getElementById('editCourseModal').style.display = 'none';
+}
+
+function saveCourseEdit(event) {
+  event.preventDefault();
+
+  const courseId = parseInt(document.getElementById('editCourseId').value);
+  const code = document.getElementById('editCourseCode').value.trim();
+  const name = document.getElementById('editCourseName').value.trim();
+  const department = document.getElementById('editDepartment').value.trim();
+  const term = document.getElementById('editTerm').value;
+
+  // Check for duplicate code (excluding current course)
+  if (courses.find(c => c.code.toLowerCase() === code.toLowerCase() && c.id !== courseId)) {
+    showCourseNotification('⚠️ Course code already exists!', 'error');
+    return;
+  }
+
+  const course = courses.find(c => c.id === courseId);
+  if (course) {
+    course.code = code;
+    course.name = name;
+    course.department = department;
+    course.term = term;
+    
+    saveCourses();
+    renderCourses();
+    closeEditCourseModal();
+    showCourseNotification('✅ Course updated successfully!', 'success');
+  }
+}
+
+function deleteCourse(courseId) {
+  if (!confirm('Are you sure you want to delete this course?')) return;
+
+  const index = courses.findIndex(c => c.id === courseId);
+  if (index !== -1) {
+    courses.splice(index, 1);
+    saveCourses();
+    renderCourses();
+    showCourseNotification('🗑️ Course deleted successfully!', 'success');
+  }
 }
 
 function openAssignInstructorModal() {
+  const users = getUsers();
+  const instructors = users.filter(u => u.role === 'instructor');
+  const course = courses.find(c => c.id === currentCourseId);
+  
+  if (instructors.length === 0) {
+    alert('No instructors available! Please add instructors in User Management first.');
+    return;
+  }
+  
+  document.getElementById('instructorSelectList').innerHTML = instructors.map(inst => {
+    const isAssigned = course.instructors.includes(inst.id);
+    return `
+      <label class="instructor-option">
+        <input type="checkbox" value="${inst.id}" ${isAssigned ? 'checked disabled' : ''}>
+        <span>
+          <strong>${inst.name}</strong><br>
+          <small>${inst.email}</small>
+          ${isAssigned ? '<br><small style="color:#7ef3b6;">✓ Already assigned</small>' : ''}
+        </span>
+      </label>
+    `;
+  }).join('');
+
   document.getElementById('assignInstructorModal').style.display = 'flex';
 }
 
-function closeAssignModal() {
+function closeAssignInstructorModal() {
   document.getElementById('assignInstructorModal').style.display = 'none';
 }
 
-// Close modal when clicking outside
-window.onclick = function(event) {
-  const courseModal = document.getElementById('courseDetailsModal');
-  const assignModal = document.getElementById('assignInstructorModal');
-  if (event.target == courseModal) {
-    closeModal();
+function assignSelectedInstructors() {
+  const checkboxes = document.querySelectorAll('#instructorSelectList input[type="checkbox"]:checked:not(:disabled)');
+  const instructorIds = Array.from(checkboxes).map(cb => parseInt(cb.value));
+  
+  if (instructorIds.length === 0) {
+    showCourseNotification('⚠️ Please select at least one instructor!', 'error');
+    return;
   }
-  if (event.target == assignModal) {
-    closeAssignModal();
+
+  const course = courses.find(c => c.id === currentCourseId);
+  if (course) {
+    instructorIds.forEach(id => {
+      if (!course.instructors.includes(id)) {
+        course.instructors.push(id);
+      }
+    });
+    
+    saveCourses();
+    closeAssignInstructorModal();
+    viewCourseDetails(currentCourseId); // Refresh the modal
+    renderCourses(); // Refresh the table
+    showCourseNotification('✅ Instructor(s) assigned successfully!', 'success');
+  }
+}
+
+function removeInstructor(courseId, instructorId) {
+  if (!confirm('Remove this instructor from the course?')) return;
+
+  const course = courses.find(c => c.id === courseId);
+  if (course) {
+    const index = course.instructors.indexOf(instructorId);
+    if (index !== -1) {
+      course.instructors.splice(index, 1);
+      saveCourses();
+      viewCourseDetails(courseId); // Refresh the modal
+      renderCourses(); // Refresh the table
+      showCourseNotification('✅ Instructor removed successfully!', 'success');
+    }
+  }
+}
+
+function showCourseNotification(message, type) {
+  const notification = document.getElementById('courseNotification');
+  notification.textContent = message;
+  notification.className = 'notice ' + type;
+  notification.style.display = 'block';
+
+  setTimeout(() => {
+    notification.style.display = 'none';
+  }, 3000);
+}
+
+// Close modals when clicking outside
+window.onclick = function(event) {
+  if (event.target.id === 'courseDetailsModal') {
+    closeCourseModal();
+  }
+  if (event.target.id === 'editCourseModal') {
+    closeEditCourseModal();
+  }
+  if (event.target.id === 'assignInstructorModal') {
+    closeAssignInstructorModal();
   }
 }
 </script>

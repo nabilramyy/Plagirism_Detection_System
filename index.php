@@ -1,13 +1,8 @@
 <?php
-// Enable error reporting for debugging
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
-
 $page = $_GET['page'] ?? 'home';
 
-// Validate page to prevent security issues
+// Validate page
 $allowed_pages = ['home', 'user_management', 'course_management', 'submissions_overview', 'system_settings'];
-
 if (!in_array($page, $allowed_pages)) {
     $page = 'home';
 }
@@ -20,7 +15,6 @@ if (!in_array($page, $allowed_pages)) {
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <link rel="stylesheet" href="assets/css/style.css" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
-  <script src="assets/js/script.js" defer></script>
 </head>
 <body>
   <?php include 'includes/header.php'; ?>
@@ -41,5 +35,7 @@ if (!in_array($page, $allowed_pages)) {
       }
     ?>
   </main>
+  
+  <script src="assets/js/script.js"></script>
 </body>
 </html>
