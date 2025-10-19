@@ -25,6 +25,11 @@ if (!isset($_SESSION['enrolled_students'])) {
     ];
 }
 
+// Initialize trash in session if not exists
+if (!isset($_SESSION['trash'])) {
+    $_SESSION['trash'] = [];
+}
+
 // Initialize submissions in session if not exists
 if (!isset($_SESSION['submissions'])) {
     $_SESSION['submissions'] = [
@@ -93,40 +98,66 @@ if (isset($_GET['signout'])) {
     exit();
 }
 
-// Handle actions (Accept, Reject, Delete, Feedback)
+// Handle actions (Accept, Reject, Delete, Feedback, Restore)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $submission_id = $_POST['submission_id'];
     $action = $_POST['action'];
     
-    foreach ($_SESSION['submissions'] as $key => $submission) {
-        if ($submission['id'] == $submission_id) {
-            if ($action === 'accept') {
-                $_SESSION['submissions'][$key]['status'] = 'accepted';
-                if (empty($_SESSION['submissions'][$key]['feedback'])) {
-                    $_SESSION['submissions'][$key]['feedback'] = 'Work accepted by instructor';
-                }
-            } elseif ($action === 'reject') {
-                $_SESSION['submissions'][$key]['status'] = 'rejected';
-                if (empty($_SESSION['submissions'][$key]['feedback'])) {
-                    $_SESSION['submissions'][$key]['feedback'] = 'Work rejected due to high plagiarism';
-                }
-            } elseif ($action === 'delete') {
-                unset($_SESSION['submissions'][$key]);
-                $_SESSION['submissions'] = array_values($_SESSION['submissions']); // Re-index array
-            } elseif ($action === 'feedback') {
-                $_SESSION['submissions'][$key]['feedback'] = $_POST['feedback_text'];
+    if ($action === 'restore') {
+        // Restore from trash
+        foreach ($_SESSION['trash'] as $key => $submission) {
+            if ($submission['id'] == $submission_id) {
+                $_SESSION['submissions'][] = $submission;
+                unset($_SESSION['trash'][$key]);
+                $_SESSION['trash'] = array_values($_SESSION['trash']);
+                break;
             }
-            break;
+        }
+    } elseif ($action === 'delete_permanent') {
+        // Permanently delete from trash
+        foreach ($_SESSION['trash'] as $key => $submission) {
+            if ($submission['id'] == $submission_id) {
+                unset($_SESSION['trash'][$key]);
+                $_SESSION['trash'] = array_values($_SESSION['trash']);
+                break;
+            }
+        }
+    } else {
+        // Handle regular submission actions
+        foreach ($_SESSION['submissions'] as $key => $submission) {
+            if ($submission['id'] == $submission_id) {
+                if ($action === 'accept') {
+                    $_SESSION['submissions'][$key]['status'] = 'accepted';
+                    if (empty($_SESSION['submissions'][$key]['feedback'])) {
+                        $_SESSION['submissions'][$key]['feedback'] = 'Work accepted by instructor';
+                    }
+                } elseif ($action === 'reject') {
+                    $_SESSION['submissions'][$key]['status'] = 'rejected';
+                    if (empty($_SESSION['submissions'][$key]['feedback'])) {
+                        $_SESSION['submissions'][$key]['feedback'] = 'Work rejected due to high plagiarism';
+                    }
+                } elseif ($action === 'delete') {
+                    // Move to trash instead of deleting
+                    $_SESSION['trash'][] = $submission;
+                    unset($_SESSION['submissions'][$key]);
+                    $_SESSION['submissions'] = array_values($_SESSION['submissions']); // Re-index array
+                } elseif ($action === 'feedback') {
+                    $_SESSION['submissions'][$key]['feedback'] = $_POST['feedback_text'];
+                }
+                break;
+            }
         }
     }
     
-    header("Location: " . $_SERVER['PHP_SELF']);
+    header("Location: " . $_SERVER['PHP_SELF'] . (isset($_GET['view']) ? '?view=' . $_GET['view'] : ''));
     exit();
 }
 
 $submissions = $_SESSION['submissions'];
+$trash = $_SESSION['trash'];
 $instructor = $_SESSION['instructor'];
 $enrolled_students = $_SESSION['enrolled_students'];
+$current_view = isset($_GET['view']) ? $_GET['view'] : 'submissions';
 ?>
 
 <!DOCTYPE html>
@@ -134,7 +165,7 @@ $enrolled_students = $_SESSION['enrolled_students'];
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Instructor Dashboard - Similyze</title>
+    <title>Instructor Dashboard - Plagiarism Detector</title>
     <style>
         * {
             margin: 0;
@@ -157,7 +188,7 @@ $enrolled_students = $_SESSION['enrolled_students'];
             flex-direction: column;
             position: fixed;
             height: 100vh;
-            overflow-y: auto;
+            overflow-y: hidden;
             border-right: 1px solid #e2e8f0;
         }
         
@@ -179,21 +210,21 @@ $enrolled_students = $_SESSION['enrolled_students'];
         }
         
         .profile-section {
-            padding: 25px 20px;
+            padding: 20px;
             border-bottom: 2px solid #e2e8f0;
         }
         
         .profile-avatar {
-            width: 80px;
-            height: 80px;
+            width: 70px;
+            height: 70px;
             border-radius: 50%;
             background: #1483be;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 32px;
+            font-size: 28px;
             color: white;
-            margin: 0 auto 15px;
+            margin: 0 auto 12px;
             font-weight: bold;
         }
         
@@ -203,14 +234,14 @@ $enrolled_students = $_SESSION['enrolled_students'];
         
         .profile-info h3 {
             color: #1e293b;
-            font-size: 18px;
-            margin-bottom: 5px;
+            font-size: 16px;
+            margin-bottom: 4px;
         }
         
         .profile-info p {
             color: #64748b;
-            font-size: 13px;
-            margin-bottom: 3px;
+            font-size: 12px;
+            margin-bottom: 2px;
         }
         
         .students-section {
@@ -219,37 +250,97 @@ $enrolled_students = $_SESSION['enrolled_students'];
             overflow-y: auto;
         }
         
+        .nav-menu {
+            padding: 15px 20px;
+            border-bottom: 2px solid #e2e8f0;
+        }
+        
+        .nav-item {
+            display: block;
+            padding: 10px 15px;
+            margin-bottom: 6px;
+            background: #f8fafc;
+            border-radius: 8px;
+            color: #1e293b;
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            border-left: 3px solid transparent;
+        }
+        
+        .nav-item:hover {
+            background: #e0f2fe;
+            border-left-color: #1483be;
+            transform: translateX(5px);
+        }
+        
+        .nav-item.active {
+            background: #1483be;
+            color: white;
+            border-left-color: #0f6a9a;
+        }
+        
+        .nav-item span {
+            margin-right: 8px;
+        }
+        
+        .students-section {
+            padding: 20px;
+            flex: 1;
+            overflow-y: auto;
+            background: #f8fafc;
+        }
+        
         .students-section h3 {
             color: #1e293b;
-            font-size: 16px;
-            margin-bottom: 15px;
+            font-size: 19px;
+            margin-bottom: 20px;
             display: flex;
             align-items: center;
             gap: 8px;
+            font-weight: 700;
+            background: white;
+            padding: 12px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
         
         .student-item {
-            padding: 12px;
-            background: #f8fafc;
-            border-radius: 8px;
-            margin-bottom: 10px;
-            border-left: 3px solid #1483be;
+            padding: 16px;
+            background: white;
+            border-radius: 10px;
+            margin-bottom: 14px;
+            border-left: 4px solid #1483be;
             transition: all 0.3s ease;
+            cursor: pointer;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.08);
         }
         
         .student-item:hover {
             background: #e0f2fe;
-            transform: translateX(5px);
+            transform: translateX(8px);
+            box-shadow: 0 4px 10px rgba(20, 131, 190, 0.2);
+            border-left-color: #0f6a9a;
         }
         
         .student-item h4 {
             color: #1e293b;
-            font-size: 14px;
-            margin-bottom: 3px;
+            font-size: 16px;
+            margin-bottom: 8px;
+            font-weight: 700;
         }
         
         .student-item p {
             color: #64748b;
+            font-size: 13px;
+            margin-bottom: 4px;
+            line-height: 1.5;
+        }
+        
+        .student-item .student-id {
+            color: #1483be;
+            font-weight: 600;
             font-size: 12px;
         }
         
@@ -512,6 +603,27 @@ $enrolled_students = $_SESSION['enrolled_students'];
             box-shadow: 0 4px 8px rgba(8, 145, 178, 0.3);
         }
         
+        .btn-restore {
+            background: #16a34a;
+            color: white;
+        }
+        
+        .btn-restore:hover {
+            background: #15803d;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(22, 163, 74, 0.3);
+        }
+        
+        .trash-badge {
+            background: #dc2626;
+            color: white;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            margin-left: 8px;
+            font-weight: 600;
+        }
+        
         .status-badge {
             display: inline-block;
             padding: 5px 15px;
@@ -575,6 +687,18 @@ $enrolled_students = $_SESSION['enrolled_students'];
             </div>
         </div>
         
+        <div class="nav-menu">
+            <a href="?view=submissions" class="nav-item <?php echo $current_view === 'submissions' ? 'active' : ''; ?>">
+                <span>📋</span> Submissions
+            </a>
+            <a href="?view=trash" class="nav-item <?php echo $current_view === 'trash' ? 'active' : ''; ?>">
+                <span>🗑️</span> Trash
+                <?php if (count($trash) > 0): ?>
+                    <span class="trash-badge"><?php echo count($trash); ?></span>
+                <?php endif; ?>
+            </a>
+        </div>
+        
         <div class="students-section">
             <h3>👥 Enrolled Students</h3>
             <?php foreach ($enrolled_students as $student): ?>
@@ -623,7 +747,71 @@ $enrolled_students = $_SESSION['enrolled_students'];
             </div>
             
             <div class="submissions">
-                <h2>Student Submissions</h2>
+                <?php if ($current_view === 'trash'): ?>
+                    <h2>🗑️ Trash</h2>
+                    
+                    <?php if (empty($trash)): ?>
+                        <div class="no-submissions">
+                            <h3>Trash is empty</h3>
+                            <p>Deleted submissions will appear here.</p>
+                        </div>
+                    <?php else: ?>
+                        <?php foreach ($trash as $submission): ?>
+                            <div class="submission-card">
+                                <div class="submission-header">
+                                    <div class="student-info">
+                                        <h3>
+                                            <?php echo htmlspecialchars($submission['student_name']); ?>
+                                            <span class="status-badge status-rejected">🗑️ Deleted</span>
+                                        </h3>
+                                        <p>📧 <?php echo htmlspecialchars($submission['student_email']); ?> | 📅 <?php echo date('F j, Y g:i A', strtotime($submission['submission_date'])); ?></p>
+                                    </div>
+                                    
+                                    <?php 
+                                    $plagiarism = $submission['plagiarism_percentage'];
+                                    $badge_class = 'plagiarism-low';
+                                    if ($plagiarism > 50) {
+                                        $badge_class = 'plagiarism-high';
+                                    } elseif ($plagiarism > 25) {
+                                        $badge_class = 'plagiarism-medium';
+                                    }
+                                    ?>
+                                    <div class="plagiarism-badge <?php echo $badge_class; ?>">
+                                        <?php echo $plagiarism; ?>% Plagiarism
+                                    </div>
+                                </div>
+                                
+                                <div class="submission-content">
+                                    <h4>📄 Document Title: <?php echo htmlspecialchars($submission['document_title']); ?></h4>
+                                    <p><?php echo nl2br(htmlspecialchars(substr($submission['content'], 0, 300))); ?><?php echo strlen($submission['content']) > 300 ? '...' : ''; ?></p>
+                                </div>
+                                
+                                <?php if ($submission['feedback']): ?>
+                                    <div class="submission-content">
+                                        <h4>💬 Feedback:</h4>
+                                        <p><?php echo htmlspecialchars($submission['feedback']); ?></p>
+                                    </div>
+                                <?php endif; ?>
+                                
+                                <div class="actions">
+                                    <form method="POST" style="display: inline;">
+                                        <input type="hidden" name="submission_id" value="<?php echo $submission['id']; ?>">
+                                        <input type="hidden" name="action" value="restore">
+                                        <button type="submit" class="btn btn-restore">↩️ Restore</button>
+                                    </form>
+                                    
+                                    <form method="POST" style="display: inline;">
+                                        <input type="hidden" name="submission_id" value="<?php echo $submission['id']; ?>">
+                                        <input type="hidden" name="action" value="delete_permanent">
+                                        <button type="submit" class="btn btn-delete" onclick="return confirm('Are you sure you want to permanently delete this submission? This action cannot be undone.')">🗑️ Delete Permanently</button>
+                                    </form>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                    
+                <?php else: ?>
+                    <h2>Student Submissions</h2>
                 
                 <?php if (empty($submissions)): ?>
                     <div class="no-submissions">
@@ -711,6 +899,7 @@ $enrolled_students = $_SESSION['enrolled_students'];
                         </div>
                     <?php endforeach; ?>
                 <?php endif; ?>
+            <?php endif; ?>
             </div>
         </div>
     </div>
