@@ -51,7 +51,7 @@
         <div class="form-content">
           <div class="login-form">
             <div class="title">Login</div>
-             <form action="login_process.php" method="post">
+            <form action="controllers/AuthController.php?action=login" method="post">
               <div class="input-boxes">
                 <div  id="admin-key-box" class="input-box admin-key" style="display:none;">
                    <i class="fas fa-key"></i>
@@ -76,7 +76,7 @@
           </div>
           <div class="signup-form">
             <div class="title">Signup</div>
-             <form action="signup_process.php" method="post"> 
+             <form action="controllers/AuthController.php?action=signup" method="post"> 
               <div class="input-boxes">
                 <div class="input-box">
                   <i class="fas fa-user"></i>

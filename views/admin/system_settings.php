@@ -23,4 +23,4 @@
 
 </section>
 
-<script src="assets/js/admin_settings.js"></script>
+<script src="/Plagirism_Detection_System/assets/js/admin_settings.js"></script>

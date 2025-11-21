@@ -2,7 +2,7 @@
 session_start();
 // Check if user is student
 if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'student') {
-    header("Location: signup.php");
+header("Location: /Plagirism_Detection_System/signup.php");
     exit();
 }
 ?>
@@ -516,7 +516,7 @@ if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'student') {
         <a id="historyBtn" data-tooltip="Past History"><i class="fas fa-history"></i></a>
         <a id="trashBtn" data-tooltip="Trash"><i class="fas fa-trash"></i></a>
     </div>
-   <a href="logout.php" class="logout" data-tooltip="Logout"><i class="fas fa-sign-out-alt"></i></a>
+   <a href=" /Plagirism_Detection_System/logout.php" class="logout" data-tooltip="Logout">
 </div>
 
 <div class="main-content">

@@ -151,4 +151,4 @@
 <div id="panelOverlay" class="panel-overlay" onclick="closeAllPanels()"></div>
 
 
-<script src="assets/js/admin_courses.js"></script>
+<script src="/Plagirism_Detection_System/assets/js/admin_courses.js"></script>
