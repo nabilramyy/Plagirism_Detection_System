@@ -34,7 +34,7 @@ if (!in_array($page, $allowed_pages)) {
 
   <main class="main-content" id="mainContent">
     <?php
-      $page_file = "views/admin/" . $page . ".php";
+      $page_file = "Views/admin/" . $page . ".php";
       
       if (file_exists($page_file)) {
           include $page_file;
