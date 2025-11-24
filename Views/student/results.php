@@ -83,7 +83,7 @@ $reportHtml = "<!DOCTYPE html>
 </div>
 <h2>Text with highlighted matches</h2>
 <p>{$textContent}</p>
-<a class='download-btn' href='download_report.php?id={$submissionId}'>Download Report</a>
+<a class='download-btn' href='download.php?id={$submissionId}'>Download Report</a>
 </body>
 </html>";
 

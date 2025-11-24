@@ -66,7 +66,7 @@ class AuthController {
         $this->alertRedirect("Welcome Instructor!", "/Plagirism_Detection_System/Views/instructor/Instructor.php");
         break;
     default:
-        $this->alertRedirect("Welcome Student!", "/Plagirism_Detection_System/Views/student/submission_management.php");
+        $this->alertRedirect("Welcome Student!", "/Plagirism_Detection_System/Views/student/student_index.php");
         break;
 }
     }

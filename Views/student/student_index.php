@@ -50,8 +50,8 @@ $username = $_SESSION['user_name'] ?? 'Student';
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Plagiarism Detection - Student</title>
-<link rel="stylesheet" href="../../../assets/css/styles/student.css">
-<link rel="stylesheet" href="../../../assets/css/styles/user.css">
+<link rel="stylesheet" href="../../assets/css/student.css">
+<link rel="stylesheet" href="../../assets/css/user.css">
 </head>
 <body>
 

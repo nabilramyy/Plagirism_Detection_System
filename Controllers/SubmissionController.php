@@ -14,9 +14,11 @@ use Models\Submission;
 class SubmissionController {
     protected $conn;
     protected $submission;
+    protected $rootPath;
 
     public function __construct(){
-        require __DIR__.'/../../includes/db.php'; 
+        $this->rootPath = dirname(__DIR__);
+        require $this->rootPath . '/includes/db.php';
         $this->conn = $conn;
         if($this->conn->connect_error) die("DB connection failed: ".$this->conn->connect_error);
         $this->submission = new Submission($this->conn);
@@ -73,7 +75,7 @@ class SubmissionController {
      * Download report
      */
     public function downloadReport($id){
-        $storageDir = __DIR__.'/../../storage/reports';
+        $storageDir = $this->rootPath . '/storage/reports';
         $files = glob($storageDir."/report_{$id}_*.html");
         if(!$files) die('Report not found.');
 
@@ -172,7 +174,7 @@ class SubmissionController {
      * Generate HTML report with highlighted words
      */
     protected function generateReport($id, $plag, $text, $matchingWords = []): string {
-        $storageDir = __DIR__ . '/../../storage/reports';
+        $storageDir = $this->rootPath . '/storage/reports';
         if (!is_dir($storageDir)) mkdir($storageDir, 0755, true);
 
         $filename = "report_{$id}_" . time() . ".html";
@@ -203,6 +205,6 @@ class SubmissionController {
 </html>";
 
         file_put_contents($path, $content);
-        return '../../storage/reports/' . $filename;
+        return '/Plagirism_Detection_System/storage/reports/' . $filename;
     }
 }
