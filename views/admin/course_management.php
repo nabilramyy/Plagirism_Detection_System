@@ -1,5 +1,4 @@
 
-   <link rel="stylesheet" href="assets/css/admin.css" />
 <section class="course-management">
   <h2>Course Management 📚</h2>
   
