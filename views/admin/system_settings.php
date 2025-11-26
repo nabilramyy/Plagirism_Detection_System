@@ -18,8 +18,4 @@
     <button type="submit" class="btn primary">💾 Save Settings</button>
     <button type="button" class="btn danger" onclick="resetSettings()">🔄 Reset to Defaults</button>
   </form>
-
-
 </section>
-
-<script src="/Plagirism_Detection_System/assets/js/admin_settings.js"></script>

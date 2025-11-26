@@ -68,6 +68,3 @@
     </div>
   </div>
 </div>
-
-
-<script src="/Plagirism_Detection_System/assets/js/admin_users.js"></script>
