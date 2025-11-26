@@ -1,4 +1,3 @@
-<link rel="stylesheet" href="assets/css/admin.css" /> 
 <section class="dashboard">
   <h2>Dashboard Overview 📊</h2>
 

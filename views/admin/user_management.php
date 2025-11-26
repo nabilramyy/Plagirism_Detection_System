@@ -1,4 +1,3 @@
-<link rel="stylesheet" href="assets/css/admin.css" />
 <section class="user-management">
   <h2>User Management 👥</h2>
 

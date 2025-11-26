@@ -1,4 +1,3 @@
-<link rel="stylesheet" href="assets/css/admin.css" />
 <section class="settings">
   <h2>System Settings ⚙️</h2>
 
