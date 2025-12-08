@@ -105,6 +105,8 @@ try {
         }
     }
 }
+
+
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -116,6 +118,8 @@ try {
 <link rel="stylesheet" href="../../assets/css/user.css">
 </head>
 <body>
+
+
 
 <!-- Sidebar -->
 <nav class="sidebar">

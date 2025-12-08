@@ -100,14 +100,40 @@ public function getTrash($instructor_id) {
         return $result->fetch_assoc();
     }
 
-    public function getEnrolledStudents() {
-        $students = [];
-        $result = $this->conn->query("SELECT * FROM users WHERE role='student'");
-        while ($row = $result->fetch_assoc()) {
-            $students[] = $row;
-        }
-        return $students;
+    /**
+ * Get students who are enrolled with a specific instructor.
+ * This will:
+ *  - return students who submitted to a course whose course.instructor_id = $instructor_id
+ *  - OR students who have a submission with s.teacher matching this instructor's name (backward compatibility)
+ * Results are DISTINCT so each student appears once.
+ */
+public function getEnrolledStudents($instructor_id)
+{
+    $students = [];
+
+    $sql = "
+        SELECT DISTINCT u.id, u.name, u.email
+        FROM submissions s
+        JOIN users u ON s.user_id = u.id
+        LEFT JOIN courses c ON s.course_id = c.id
+        WHERE c.instructor_id = ? 
+           OR s.teacher = (SELECT name FROM users WHERE id=? AND role='instructor')
+    ";
+
+    $stmt = $this->conn->prepare($sql);
+    $stmt->bind_param("ii", $instructor_id, $instructor_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    while ($row = $result->fetch_assoc()) {
+        $students[] = $row;
     }
+
+    $stmt->close();
+    return $students;
+}
+
+
 
     /**
      * Get all instructors from database
