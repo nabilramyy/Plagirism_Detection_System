@@ -524,8 +524,8 @@ document.addEventListener('DOMContentLoaded', function(){
     });
 
     // No auto-selection needed - instructor selection is independent
-});
-</script>
+ });
+ </script>
 
 </body>
 </html>
