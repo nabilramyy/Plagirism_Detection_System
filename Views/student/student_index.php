@@ -37,34 +37,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 // Handle DELETE action
+// Handle DELETE action
 if (isset($_POST['delete_id'])) {
-    // Verify ownership before deleting
-    if ($auth->ownsResource($_POST['delete_id'])) {
-        $ctrl->delete($_POST['delete_id'], $userId);
-        header("Location: student_index.php");
-        exit;
-    } else {
-        die('Unauthorized: You can only delete your own submissions.');
-    }
+    $ctrl->delete($_POST['delete_id'], $userId);
+    header("Location: student_index.php");
+    exit;
 }
 
 // Handle RESTORE action
 if (isset($_POST['restore_id'])) {
-    // Verify ownership before restoring
-    if ($auth->ownsResource($_POST['restore_id'])) {
-        $ctrl->restore($_POST['restore_id'], $userId);
-        header("Location: student_index.php");
-        exit;
-    } else {
-        die('Unauthorized: You can only restore your own submissions.');
-    }
+    $ctrl->restore($_POST['restore_id'], $userId);
+    header("Location: student_index.php");
+    exit;
 }
 
 // Handle SUBMISSION
 $submissionResult = null;
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['delete_id']) && !isset($_POST['restore_id'])) {
-    // Additional validation: ensure user_id in submission matches authenticated user
-    $_POST['user_id'] = $userId; // Force correct user ID
+    $_POST['user_id'] = $userId;
     $submissionResult = $ctrl->submit();
 }
 
