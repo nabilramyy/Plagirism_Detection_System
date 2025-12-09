@@ -355,16 +355,36 @@ class Submission {
     /**
      * Get report path for a submission
      */
-    public function getReportPath(int $submission_id): ?string {
-        $storageDir = dirname(__DIR__) . '/storage/reports';
-        $files = glob($storageDir . "/report_{$submission_id}_*.html");
-        
-        if (!empty($files)) {
-            return $files[0];
-        }
-        
-        return null;
+   /**
+ * Get report path for a submission
+ */
+public function getReportPath(int $submission_id): ?string {
+    // First, check database for stored path
+    $stmt = $this->conn->prepare("SELECT report_path FROM submissions WHERE id = ?");
+    $stmt->bind_param("i", $submission_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $row = $result->fetch_assoc();
+    $stmt->close();
+    
+    if ($row && !empty($row['report_path']) && file_exists($row['report_path'])) {
+        return $row['report_path'];
     }
+    
+    // Fallback: search for file by submission ID (get most recent)
+    $storageDir = dirname(__DIR__) . '/storage/reports';
+    $files = glob($storageDir . "/report_{$submission_id}_*.html");
+    
+    if (!empty($files)) {
+        // Sort by modification time (newest first)
+        usort($files, function($a, $b) {
+            return filemtime($b) - filemtime($a);
+        });
+        return $files[0];
+    }
+    
+    return null;
+}
 
     /**
      * Accept a submission (set status to 'accepted')

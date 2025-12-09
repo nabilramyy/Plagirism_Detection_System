@@ -49,9 +49,12 @@ class InstructorController {
     /**
      * Get statistics for dashboard
      */
-    public function getStats(): array {
-        return $this->instructorModel->getStats();
-    }
+  /**
+ * Get statistics for dashboard
+ */
+public function getStats(int $instructor_id): array {
+    return $this->instructorModel->getStats($instructor_id);
+}
 
     /**
      * Get enrolled students

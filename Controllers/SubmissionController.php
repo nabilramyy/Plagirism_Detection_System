@@ -217,19 +217,22 @@ class SubmissionController {
     /**
      * Generate HTML report with highlighted words
      */
-    protected function generateReport($id, $plag, $text, $matchingWords = []): string {
-        $storageDir = $this->rootPath . '/storage/reports';
-        if (!is_dir($storageDir)) mkdir($storageDir, 0755, true);
+ /**
+ * Generate HTML report with highlighted words
+ */
+protected function generateReport($id, $plag, $text, $matchingWords = []): string {
+    $storageDir = $this->rootPath . '/storage/reports';
+    if (!is_dir($storageDir)) mkdir($storageDir, 0755, true);
 
-        $filename = "report_{$id}_" . time() . ".html";
-        $path = $storageDir . '/' . $filename;
+    $filename = "report_{$id}_" . time() . ".html";
+    $path = $storageDir . '/' . $filename;
 
-        $highlightedText = $text;
-        foreach ($matchingWords as $word) {
-            $highlightedText = preg_replace('/\b(' . preg_quote($word, '/') . ')\b/i', '<mark>$1</mark>', $highlightedText);
-        }
+    $highlightedText = $text;
+    foreach ($matchingWords as $word) {
+        $highlightedText = preg_replace('/\b(' . preg_quote($word, '/') . ')\b/i', '<mark>$1</mark>', $highlightedText);
+    }
 
-        $content = "<!DOCTYPE html>
+    $content = "<!DOCTYPE html>
 <html lang='en'>
 <head>
 <meta charset='UTF-8'>
@@ -248,7 +251,14 @@ class SubmissionController {
 </body>
 </html>";
 
-        file_put_contents($path, $content);
-        return '/Plagirism_Detection_System/storage/reports/' . $filename;
-    }
+    file_put_contents($path, $content);
+    
+    // ✅ SAVE THE REPORT PATH TO DATABASE
+    $stmt = $this->conn->prepare("UPDATE submissions SET report_path = ? WHERE id = ?");
+    $stmt->bind_param("si", $path, $id);
+    $stmt->execute();
+    $stmt->close();
+    
+    return '/Plagirism_Detection_System/storage/reports/' . $filename;
+}
 }

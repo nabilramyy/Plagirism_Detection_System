@@ -218,21 +218,23 @@ if ($currentInstructor['id'] != $instructor_id) {
                                     <div class="student-info">
                                         <h3>
                                             <?php echo htmlspecialchars($submission['student_name']); ?>
-                                            <span class="status-badge <?php 
-                                                echo match($submission['status'] ?? '') {
-                                                    'accepted' => 'status-accepted',
-                                                    'rejected' => 'status-rejected',
-                                                    default => 'status-pending'
-                                                };
-                                            ?>">
-                                                <?php 
-                                                echo match($submission['status'] ?? '') {
-                                                    'accepted' => '✓ Accepted',
-                                                    'rejected' => '✗ Rejected',
-                                                    default => '⏳ Pending'
-                                                };
-                                                ?>
-                                            </span>
+                                           <span class="status-badge <?php 
+    echo match($submission['status'] ?? '') {
+        'accepted' => 'status-accepted',
+        'rejected' => 'status-rejected',
+        'active' => 'status-pending',  // ✅ Added this line
+        default => 'status-pending'
+    };
+?>">
+    <?php 
+    echo match($submission['status'] ?? '') {
+        'accepted' => '✓ Accepted',
+        'rejected' => '✗ Rejected',
+        'active' => '⏳ Pending Review',  // ✅ Added this line
+        default => '⏳ Pending'
+    };
+    ?>
+</span>
                                         </h3>
                                         <p>📧 <?php echo htmlspecialchars($submission['student_email']); ?> | 📅 <?php echo date('F j, Y g:i A', strtotime($submission['created_at'] ?? 'now')); ?></p>
                                     </div>

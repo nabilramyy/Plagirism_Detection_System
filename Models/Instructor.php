@@ -100,98 +100,112 @@ class Instructor {
      * Get statistics for instructor dashboard
      * FIXED: Now properly counts submissions by status for THIS instructor
      */
-    public function getStats($instructor_id = null) {
-        // Get count of students enrolled (all students)
-        $studentResult = $this->conn->query("SELECT COUNT(*) AS students_enrolled FROM users WHERE role='student'");
-        $studentData = $studentResult->fetch_assoc();
-        
-        // If no instructor_id provided, try to get from session
-        if ($instructor_id === null) {
-            if (isset($_SESSION['user']['id'])) {
-                $instructor_id = $_SESSION['user']['id'];
-            } elseif (isset($_SESSION['user_id'])) {
-                $instructor_id = $_SESSION['user_id'];
-            } else {
-                // Return default stats if no instructor ID
-                return [
-                    'students_enrolled' => $studentData['students_enrolled'] ?? 0,
-                    'total_submissions' => 0,
-                    'pending_submissions' => 0,
-                    'accepted_submissions' => 0,
-                    'rejected_submissions' => 0
-                ];
-            }
+ /**
+ * Get statistics for instructor dashboard
+ * FIXED: Now properly counts submissions by status for THIS instructor
+ */
+/**
+ * Get statistics for instructor dashboard
+ */
+public function getStats($instructor_id = null) {
+    // If no instructor_id provided, try to get from session
+    if ($instructor_id === null) {
+        if (isset($_SESSION['user']['id'])) {
+            $instructor_id = $_SESSION['user']['id'];
+        } elseif (isset($_SESSION['user_id'])) {
+            $instructor_id = $_SESSION['user_id'];
+        } else {
+            return [
+                'students_enrolled' => 0,
+                'total_submissions' => 0,
+                'pending_submissions' => 0,
+                'accepted_submissions' => 0,
+                'rejected_submissions' => 0
+            ];
         }
-        
-        // Count total submissions (excluding deleted) for this instructor
-        $totalQuery = "
-            SELECT COUNT(*) as total_submissions
-            FROM submissions s
-            LEFT JOIN courses c ON s.course_id = c.id
-            WHERE (c.instructor_id = ? OR s.teacher = (SELECT name FROM users WHERE id = ? AND role='instructor'))
-            AND s.status <> 'deleted'
-        ";
-        $stmt = $this->conn->prepare($totalQuery);
-        $stmt->bind_param("ii", $instructor_id, $instructor_id);
-        $stmt->execute();
-        $totalResult = $stmt->get_result();
-        $totalData = $totalResult->fetch_assoc();
-        $stmt->close();
-        
-        // Count pending submissions for this instructor
-        $pendingQuery = "
-            SELECT COUNT(*) as pending_submissions
-            FROM submissions s
-            LEFT JOIN courses c ON s.course_id = c.id
-            WHERE (c.instructor_id = ? OR s.teacher = (SELECT name FROM users WHERE id = ? AND role='instructor'))
-            AND s.status = 'pending'
-        ";
-        $stmt = $this->conn->prepare($pendingQuery);
-        $stmt->bind_param("ii", $instructor_id, $instructor_id);
-        $stmt->execute();
-        $pendingResult = $stmt->get_result();
-        $pendingData = $pendingResult->fetch_assoc();
-        $stmt->close();
-        
-        // Count accepted submissions for this instructor
-        $acceptedQuery = "
-            SELECT COUNT(*) as accepted_submissions
-            FROM submissions s
-            LEFT JOIN courses c ON s.course_id = c.id
-            WHERE (c.instructor_id = ? OR s.teacher = (SELECT name FROM users WHERE id = ? AND role='instructor'))
-            AND s.status = 'accepted'
-        ";
-        $stmt = $this->conn->prepare($acceptedQuery);
-        $stmt->bind_param("ii", $instructor_id, $instructor_id);
-        $stmt->execute();
-        $acceptedResult = $stmt->get_result();
-        $acceptedData = $acceptedResult->fetch_assoc();
-        $stmt->close();
-        
-        // Count rejected submissions for this instructor
-        $rejectedQuery = "
-            SELECT COUNT(*) as rejected_submissions
-            FROM submissions s
-            LEFT JOIN courses c ON s.course_id = c.id
-            WHERE (c.instructor_id = ? OR s.teacher = (SELECT name FROM users WHERE id = ? AND role='instructor'))
-            AND s.status = 'rejected'
-        ";
-        $stmt = $this->conn->prepare($rejectedQuery);
-        $stmt->bind_param("ii", $instructor_id, $instructor_id);
-        $stmt->execute();
-        $rejectedResult = $stmt->get_result();
-        $rejectedData = $rejectedResult->fetch_assoc();
-        $stmt->close();
-        
-        return [
-            'students_enrolled' => $studentData['students_enrolled'] ?? 0,
-            'total_submissions' => $totalData['total_submissions'] ?? 0,
-            'pending_submissions' => $pendingData['pending_submissions'] ?? 0,
-            'accepted_submissions' => $acceptedData['accepted_submissions'] ?? 0,
-            'rejected_submissions' => $rejectedData['rejected_submissions'] ?? 0
-        ];
     }
-
+    
+    // Get instructor name for backward compatibility check
+    $instructorStmt = $this->conn->prepare("SELECT name FROM users WHERE id = ? AND role='instructor'");
+    $instructorStmt->bind_param("i", $instructor_id);
+    $instructorStmt->execute();
+    $instructorResult = $instructorStmt->get_result();
+    $instructorData = $instructorResult->fetch_assoc();
+    $instructorName = $instructorData['name'] ?? '';
+    $instructorStmt->close();
+    
+    // Get count of students enrolled
+    $studentResult = $this->conn->query("SELECT COUNT(*) AS students_enrolled FROM users WHERE role='student'");
+    $studentData = $studentResult->fetch_assoc();
+    
+    // Count total submissions (excluding deleted) for this instructor
+    $totalQuery = "
+        SELECT COUNT(*) as total_submissions
+        FROM submissions s
+        LEFT JOIN courses c ON s.course_id = c.id
+        WHERE (c.instructor_id = ? OR s.teacher = ?)
+        AND s.status <> 'deleted'
+    ";
+    $stmt = $this->conn->prepare($totalQuery);
+    $stmt->bind_param("is", $instructor_id, $instructorName);
+    $stmt->execute();
+    $totalResult = $stmt->get_result();
+    $totalData = $totalResult->fetch_assoc();
+    $stmt->close();
+    
+    // Count pending submissions (status = 'active' means not yet reviewed)
+    $pendingQuery = "
+        SELECT COUNT(*) as pending_submissions
+        FROM submissions s
+        LEFT JOIN courses c ON s.course_id = c.id
+        WHERE (c.instructor_id = ? OR s.teacher = ?)
+        AND s.status = 'active'
+    ";
+    $stmt = $this->conn->prepare($pendingQuery);
+    $stmt->bind_param("is", $instructor_id, $instructorName);
+    $stmt->execute();
+    $pendingResult = $stmt->get_result();
+    $pendingData = $pendingResult->fetch_assoc();
+    $stmt->close();
+    
+    // Count accepted submissions
+    $acceptedQuery = "
+        SELECT COUNT(*) as accepted_submissions
+        FROM submissions s
+        LEFT JOIN courses c ON s.course_id = c.id
+        WHERE (c.instructor_id = ? OR s.teacher = ?)
+        AND s.status = 'accepted'
+    ";
+    $stmt = $this->conn->prepare($acceptedQuery);
+    $stmt->bind_param("is", $instructor_id, $instructorName);
+    $stmt->execute();
+    $acceptedResult = $stmt->get_result();
+    $acceptedData = $acceptedResult->fetch_assoc();
+    $stmt->close();
+    
+    // Count rejected submissions
+    $rejectedQuery = "
+        SELECT COUNT(*) as rejected_submissions
+        FROM submissions s
+        LEFT JOIN courses c ON s.course_id = c.id
+        WHERE (c.instructor_id = ? OR s.teacher = ?)
+        AND s.status = 'rejected'
+    ";
+    $stmt = $this->conn->prepare($rejectedQuery);
+    $stmt->bind_param("is", $instructor_id, $instructorName);
+    $stmt->execute();
+    $rejectedResult = $stmt->get_result();
+    $rejectedData = $rejectedResult->fetch_assoc();
+    $stmt->close();
+    
+    return [
+        'students_enrolled' => $studentData['students_enrolled'] ?? 0,
+        'total_submissions' => $totalData['total_submissions'] ?? 0,
+        'pending_submissions' => $pendingData['pending_submissions'] ?? 0,
+        'accepted_submissions' => $acceptedData['accepted_submissions'] ?? 0,
+        'rejected_submissions' => $rejectedData['rejected_submissions'] ?? 0
+    ];
+}
     public function getEnrolledStudents() {
         $students = [];
         $result = $this->conn->query("SELECT * FROM users WHERE role='student'");
