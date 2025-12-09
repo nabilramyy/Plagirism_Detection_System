@@ -154,19 +154,20 @@ public function getStats($instructor_id = null) {
     $stmt->close();
     
     // Count pending submissions (status = 'active' means not yet reviewed)
-    $pendingQuery = "
-        SELECT COUNT(*) as pending_submissions
-        FROM submissions s
-        LEFT JOIN courses c ON s.course_id = c.id
-        WHERE (c.instructor_id = ? OR s.teacher = ?)
-        AND s.status = 'active'
-    ";
-    $stmt = $this->conn->prepare($pendingQuery);
-    $stmt->bind_param("is", $instructor_id, $instructorName);
-    $stmt->execute();
-    $pendingResult = $stmt->get_result();
-    $pendingData = $pendingResult->fetch_assoc();
-    $stmt->close();
+    // Count pending submissions (status = 'active' OR 'pending' OR NULL)
+$pendingQuery = "
+    SELECT COUNT(*) as pending_submissions
+    FROM submissions s
+    LEFT JOIN courses c ON s.course_id = c.id
+    WHERE (c.instructor_id = ? OR s.teacher = ?)
+    AND (s.status = 'active' OR s.status = 'pending' OR s.status IS NULL OR s.status = '')
+";
+$stmt = $this->conn->prepare($pendingQuery);
+$stmt->bind_param("is", $instructor_id, $instructorName);
+$stmt->execute();
+$pendingResult = $stmt->get_result();
+$pendingData = $pendingResult->fetch_assoc();
+$stmt->close();
     
     // Count accepted submissions
     $acceptedQuery = "
