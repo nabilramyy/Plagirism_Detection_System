@@ -34,8 +34,28 @@ class SubmissionController {
         if (!Csrf::verify($_POST['_csrf'] ?? '')) die('Invalid CSRF token');
 
         $text = Validator::sanitize($_POST['textInput'] ?? '');
-        $teacher = Validator::sanitize($_POST['teacherSelect'] ?? '');
-        $userId = $_SESSION['user_id'] ?? 1;
+        $instructorId = intval($_POST['instructorSelect'] ?? 0);
+        $userId = intval($_POST['user_id'] ?? 0);
+        
+        if ($userId <= 0) {
+            die('Invalid user ID. Please log in again.');
+        }
+
+        // Get instructor name for teacher field (for backward compatibility)
+        // If no instructor selected, teacher will be null (general submission)
+        $teacher = null;
+        $courseId = null;
+        
+        if ($instructorId > 0) {
+            $instructorStmt = $this->conn->prepare("SELECT name FROM users WHERE id = ? AND role='instructor'");
+            $instructorStmt->bind_param("i", $instructorId);
+            $instructorStmt->execute();
+            $instructorResult = $instructorStmt->get_result();
+            if ($instructorRow = $instructorResult->fetch_assoc()) {
+                $teacher = $instructorRow['name'];
+            }
+            $instructorStmt->close();
+        }
 
         $fileInfo = null;
         if (isset($_FILES['fileInput']) && $_FILES['fileInput']['name']) {
@@ -62,6 +82,7 @@ class SubmissionController {
 
         $data = [
             'user_id' => $userId,
+            'course_id' => $courseId > 0 ? $courseId : 0, // Use 0 for general submissions (course_id is NOT NULL in DB)
             'teacher' => $teacher,
             'text_content' => $text,
             'file_path' => $fileInfo['path'] ?? null,
@@ -126,6 +147,13 @@ class SubmissionController {
 
     public function getUserSubmissions(int $userId, string $status = 'active'): array {
         return $this->submission->getByUser($userId, $status);
+    }
+
+    /**
+     * Get report path for a submission
+     */
+    public function getReportPath(int $submission_id): ?string {
+        return $this->submission->getReportPath($submission_id);
     }
 
     /**
