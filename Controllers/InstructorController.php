@@ -56,13 +56,10 @@ class InstructorController {
     /**
      * Get enrolled students
      */
-  public function getEnrolledStudents($instructor_id)
-{
-    return $this->instructorModel->getEnrolledStudents($instructor_id);
-}
-
-
-
+    public function getEnrolledStudents($instructor_id)
+    {
+        return $this->instructorModel->getEnrolledStudents($instructor_id);
+    }
 
     /**
      * Get submissions for instructor
@@ -99,7 +96,7 @@ class InstructorController {
         }
 
         $stats = $this->instructorModel->getStats();
-       $enrolled_students = $controller->getEnrolledStudents($instructor_id);
+        // FIXED: Changed from $controller to $this
         $submissions = $this->instructorModel->getSubmissions($instructor_id);
         $trash = $this->instructorModel->getTrash($instructor_id);
 
@@ -148,12 +145,13 @@ class InstructorController {
 
     /**
      * Delete a submission (move to trash)
-     * Enhanced with audit logging
+     * Enhanced with audit logging and error handling
      */
     public function deleteSubmission(int $submission_id, int $instructor_id): bool {
         // Verify ownership
         if (!$this->instructorModel->ownsSubmission($instructor_id, $submission_id)) {
             $this->logSecurityEvent($instructor_id, 'UNAUTHORIZED_DELETE_ATTEMPT', $submission_id);
+            error_log("Delete failed: Instructor $instructor_id does not own submission $submission_id");
             return false;
         }
         
@@ -161,6 +159,9 @@ class InstructorController {
         
         if ($result) {
             $this->logAction($instructor_id, 'delete', $submission_id);
+            error_log("Success: Instructor $instructor_id deleted submission $submission_id");
+        } else {
+            error_log("Delete failed: Database error for submission $submission_id");
         }
         
         return $result;
@@ -203,7 +204,7 @@ class InstructorController {
         if (!$this->instructorModel->ownsSubmission($instructor_id, $submission_id)) {
             $this->logSecurityEvent($instructor_id, 'UNAUTHORIZED_VIEW_REPORT_ATTEMPT', $submission_id);
             http_response_code(403);
-            die('⛔ Access denied. You do not have permission to view this report.');
+            die('🛑 Access denied. You do not have permission to view this report.');
         }
 
         $reportPath = $this->submissionModel->getReportPath($submission_id);
@@ -220,7 +221,7 @@ class InstructorController {
         if (strpos($realPath, $reportsDir) !== 0) {
             $this->logSecurityEvent($instructor_id, 'PATH_TRAVERSAL_ATTEMPT', $submission_id);
             http_response_code(403);
-            die('⛔ Security violation detected.');
+            die('🛑 Security violation detected.');
         }
 
         $this->logAction($instructor_id, 'view_report', $submission_id);
@@ -241,7 +242,7 @@ class InstructorController {
         if (!$this->instructorModel->ownsSubmission($instructor_id, $submission_id)) {
             $this->logSecurityEvent($instructor_id, 'UNAUTHORIZED_DOWNLOAD_ATTEMPT', $submission_id);
             http_response_code(403);
-            die('⛔ Access denied. You do not have permission to download this report.');
+            die('🛑 Access denied. You do not have permission to download this report.');
         }
 
         $reportPath = $this->submissionModel->getReportPath($submission_id);
@@ -258,7 +259,7 @@ class InstructorController {
         if (strpos($realPath, $reportsDir) !== 0) {
             $this->logSecurityEvent($instructor_id, 'PATH_TRAVERSAL_ATTEMPT', $submission_id);
             http_response_code(403);
-            die('⛔ Security violation detected.');
+            die('🛑 Security violation detected.');
         }
 
         $this->logAction($instructor_id, 'download_report', $submission_id);

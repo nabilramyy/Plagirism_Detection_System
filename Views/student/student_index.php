@@ -36,27 +36,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Handle DELETE action
-// Handle DELETE action
+// Handle DELETE action with improved feedback
 if (isset($_POST['delete_id'])) {
-    if ($auth->ownsResource($_POST['delete_id'])) {
-        $ctrl->delete($_POST['delete_id'], $userId);
-        header("Location: student_index.php");
-        exit;
+    $deleteId = intval($_POST['delete_id']);
+    
+    // Attempt delete
+    $deleteSuccess = $ctrl->delete($deleteId, $userId);
+    
+    if ($deleteSuccess) {
+        $_SESSION['success_msg'] = '✅ Submission deleted successfully.';
     } else {
-        die('Unauthorized: You can only delete your own submissions.');
+        $_SESSION['error_msg'] = '❌ Failed to delete submission. You can only delete your own submissions.';
     }
+    
+    header("Location: student_index.php");
+    exit;
 }
 
-// Handle RESTORE action
+// Handle RESTORE action with improved feedback
 if (isset($_POST['restore_id'])) {
-    if ($auth->ownsResource($_POST['restore_id'])) {
-        $ctrl->restore($_POST['restore_id'], $userId);
-        header("Location: student_index.php");
-        exit;
+    $restoreId = intval($_POST['restore_id']);
+    
+    // Attempt restore
+    $restoreSuccess = $ctrl->restore($restoreId, $userId);
+    
+    if ($restoreSuccess) {
+        $_SESSION['success_msg'] = '✅ Submission restored successfully.';
     } else {
-        die('Unauthorized: You can only restore your own submissions.');
+        $_SESSION['error_msg'] = '❌ Failed to restore submission. You can only restore your own submissions.';
     }
+    
+    header("Location: student_index.php");
+    exit;
 }
 
 // Handle SUBMISSION
@@ -123,10 +134,30 @@ foreach ($submissions as $sub) {
 <title>Plagiarism Detection - Student Dashboard</title>
 <link rel="stylesheet" href="../../assets/css/student.css">
 <link rel="stylesheet" href="../../assets/css/user.css">
+<style>
+    /* Alert styles */
+    .alert-success {
+        background: #dcfce7;
+        color: #166534;
+        padding: 15px 20px;
+        border-radius: 8px;
+        margin: 20px 0;
+        border-left: 4px solid #10b981;
+        font-weight: 500;
+    }
+    
+    .alert-error {
+        background: #fee2e2;
+        color: #991b1b;
+        padding: 15px 20px;
+        border-radius: 8px;
+        margin: 20px 0;
+        border-left: 4px solid #ef4444;
+        font-weight: 500;
+    }
+</style>
 </head>
 <body>
-
-
 
 <!-- Sidebar -->
 <nav class="sidebar">
@@ -155,6 +186,21 @@ foreach ($submissions as $sub) {
 
 <!-- Main content -->
 <main class="main-content">
+
+    <!-- Display feedback messages -->
+    <?php if (isset($_SESSION['success_msg'])): ?>
+        <div class="alert-success">
+            <?= htmlspecialchars($_SESSION['success_msg']) ?>
+        </div>
+        <?php unset($_SESSION['success_msg']); ?>
+    <?php endif; ?>
+
+    <?php if (isset($_SESSION['error_msg'])): ?>
+        <div class="alert-error">
+            <?= htmlspecialchars($_SESSION['error_msg']) ?>
+        </div>
+        <?php unset($_SESSION['error_msg']); ?>
+    <?php endif; ?>
 
     <!-- Submission Page -->
     <section id="mainPage" class="page active">
@@ -244,7 +290,7 @@ foreach ($submissions as $sub) {
                     <form method="POST">
                         <input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES) ?>">
                         <input type="hidden" name="delete_id" value="<?= $sub['id'] ?>">
-                        <button type="submit">Delete</button>
+                        <button type="submit" onclick="return confirm('Are you sure you want to delete this submission?');">Delete</button>
                     </form>
                 </div>
             <?php endforeach; ?>
@@ -255,191 +301,99 @@ foreach ($submissions as $sub) {
 
     <!-- Notifications Page -->
     <section id="notificationsPage" class="page">
-        <h1>Notifications</h1>
+        <h1>🔔 Notifications</h1>
+        <p style="color: #64748b; margin-bottom: 20px;">Instructor updates on your submissions</p>
+        
         <?php 
         $hasNotifications = false;
-        foreach ($submissions as $sub):
+        
+        foreach($submissions as $sub): 
             $hasFeedback = !empty($sub['feedback']);
             $isAccepted = $sub['status'] === 'accepted';
             $isRejected = $sub['status'] === 'rejected';
-            $seen = $sub['notification_seen'] ?? 0;
             
-            if ((!$hasFeedback && !$isAccepted && !$isRejected) || $seen) continue;
+            if (!$hasFeedback && !$isAccepted && !$isRejected) {
+                continue;
+            }
+            
             $hasNotifications = true;
-            $notifColor = $isAccepted ? '#10b981' : ($isRejected ? '#ef4444' : '#3b82f6');
-            $notifIcon = $isAccepted ? '✅' : ($isRejected ? '❌' : '💬');
-            $notifTitle = $isAccepted ? 'Submission Accepted' : ($isRejected ? 'Submission Rejected' : 'Feedback Received');
+            
+            $notificationColor = '#3b82f6';
+            $notificationIcon = '💬';
+            $notificationTitle = 'Feedback Received';
+            
+            if ($isAccepted) {
+                $notificationColor = '#10b981';
+                $notificationIcon = '✅';
+                $notificationTitle = 'Submission Accepted';
+            } elseif ($isRejected) {
+                $notificationColor = '#ef4444';
+                $notificationIcon = '❌';
+                $notificationTitle = 'Submission Rejected';
+            }
+            
             $plagColor = $sub['similarity'] > 70 ? '#ef4444' : ($sub['similarity'] > 40 ? '#f59e0b' : '#10b981');
         ?>
-            <div class="notification-card" style="border-left: 4px solid <?= $notifColor ?>">
-                <strong><?= $notifIcon ?> <?= $notifTitle ?></strong>
-                <p>Submission #<?= $sub['id'] ?> • <?= date('M j, Y g:i A', strtotime($sub['created_at'])) ?></p>
-                <p>Plagiarism: <span style="color: <?= $plagColor ?>; font-weight:bold"><?= $sub['similarity'] ?>%</span></p>
-                <?php if(!empty($sub['feedback'])): ?>
-                    <p>Feedback: <?= nl2br(htmlspecialchars($sub['feedback'])) ?></p>
+            <div class="notification-card" style="background: white; border: 1px solid #e2e8f0; border-left: 4px solid <?= $notificationColor ?>; border-radius: 8px; padding: 20px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px;">
+                    <div>
+                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                            <span style="font-size: 20px;"><?= $notificationIcon ?></span>
+                            <h3 style="margin: 0; color: #1e293b;"><?= $notificationTitle ?></h3>
+                        </div>
+                        <p style="margin: 0; font-size: 13px; color: #64748b;">Submission #<?= $sub['id'] ?> • <?= date('M j, Y g:i A', strtotime($sub['created_at'])) ?></p>
+                    </div>
+                    <span style="background: <?= $notificationColor ?>; color: white; padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: bold;">
+                        NEW
+                    </span>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 16px; padding: 12px; background: #f8fafc; border-radius: 6px;">
+                    <div>
+                        <p style="margin: 0; font-size: 12px; color: #64748b;">Plagiarism Score</p>
+                        <p style="margin: 4px 0 0 0; font-size: 18px; font-weight: bold; color: <?= $plagColor ?>;">
+                            <?= $sub['similarity'] ?>%
+                        </p>
+                    </div>
+                    <?php if(!empty($sub['teacher'])): ?>
+                    <div>
+                        <p style="margin: 0; font-size: 12px; color: #64748b;">Instructor</p>
+                        <p style="margin: 4px 0 0 0; font-size: 14px; font-weight: 600; color: #1e293b;">
+                            👨‍🏫 <?= htmlspecialchars($sub['teacher']) ?>
+                        </p>
+                    </div>
+                    <?php endif; ?>
+                </div>
+                
+                <?php if ($isAccepted || $isRejected): ?>
+                    <div style="background: <?= $isAccepted ? '#d1fae5' : '#fee2e2' ?>; padding: 14px; border-radius: 6px; margin-bottom: 12px; border-left: 4px solid <?= $isAccepted ? '#10b981' : '#ef4444' ?>;">
+                        <strong style="color: #1e293b;">
+                            <?= $isAccepted ? '✅ Submission Accepted!' : '❌ Submission Rejected' ?>
+                        </strong>
+                    </div>
+                <?php endif; ?>
+                
+                <?php if($hasFeedback): ?>
+                    <div style="background: #eff6ff; padding: 14px; border-radius: 6px; margin-bottom: 12px; border-left: 4px solid #3b82f6;">
+                        <strong style="color: #1e293b;">💬 Instructor Feedback</strong>
+                        <p style="margin: 8px 0 0 0; color: #1e293b; white-space: pre-wrap;">
+                            <?= nl2br(htmlspecialchars($sub['feedback'])) ?>
+                        </p>
+                    </div>
                 <?php endif; ?>
             </div>
-        <?php endforeach;
+        <?php 
+        endforeach; 
+        
         if (!$hasNotifications): ?>
-            <p>No new notifications</p>
+            <div style="text-align: center; padding: 60px 20px; color: #64748b;">
+                <div style="font-size: 64px; margin-bottom: 16px; opacity: 0.5;">🔔</div>
+                <h3 style="color: #475569; margin-bottom: 8px;">No new notifications</h3>
+                <p style="margin: 0;">You'll be notified when your instructor reviews your submissions</p>
+            </div>
         <?php endif; ?>
     </section>
 
-    <<!-- Notifications Page -->
-<section id="notificationsPage" class="page">
-    <h1>🔔 Notifications</h1>
-    <p style="color: #64748b; margin-bottom: 20px;">Instructor updates on your submissions</p>
-    
-    <?php 
-    $hasNotifications = false;
-    
-    // Filter: ONLY show submissions with instructor actions
-    foreach($submissions as $sub): 
-        $hasFeedback = !empty($sub['feedback']);
-        $isAccepted = $sub['status'] === 'accepted';
-        $isRejected = $sub['status'] === 'rejected';
-        
-        // SKIP if no instructor action (pending or active without feedback)
-        if (!$hasFeedback && !$isAccepted && !$isRejected) {
-            continue;
-        }
-        
-        $hasNotifications = true;
-        
-        // Determine notification styling
-        $notificationColor = '#3b82f6'; // default blue
-        $notificationIcon = '💬';
-        $notificationTitle = 'Feedback Received';
-        
-        if ($isAccepted) {
-            $notificationColor = '#10b981'; // green
-            $notificationIcon = '✅';
-            $notificationTitle = 'Submission Accepted';
-        } elseif ($isRejected) {
-            $notificationColor = '#ef4444'; // red
-            $notificationIcon = '❌';
-            $notificationTitle = 'Submission Rejected';
-        }
-        
-        // Plagiarism color
-        $plagColor = $sub['similarity'] > 70 ? '#ef4444' : ($sub['similarity'] > 40 ? '#f59e0b' : '#10b981');
-    ?>
-        <div class="notification-card" style="background: white; border: 1px solid #e2e8f0; border-left: 4px solid <?= $notificationColor ?>; border-radius: 8px; padding: 20px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-            <!-- Notification Header -->
-            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px;">
-                <div>
-                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
-                        <span style="font-size: 20px;"><?= $notificationIcon ?></span>
-                        <h3 style="margin: 0; color: #1e293b;"><?= $notificationTitle ?></h3>
-                    </div>
-                    <p style="margin: 0; font-size: 13px; color: #64748b;">Submission #<?= $sub['id'] ?> • <?= date('M j, Y g:i A', strtotime($sub['created_at'])) ?></p>
-                </div>
-                <span style="background: <?= $notificationColor ?>; color: white; padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; white-space: nowrap;">
-                    NEW
-                </span>
-            </div>
-            
-            <!-- Quick Info -->
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 16px; padding: 12px; background: #f8fafc; border-radius: 6px;">
-                <div>
-                    <p style="margin: 0; font-size: 12px; color: #64748b;">Plagiarism Score</p>
-                    <p style="margin: 4px 0 0 0; font-size: 18px; font-weight: bold; color: <?= $plagColor ?>;">
-                        <?= $sub['similarity'] ?>%
-                    </p>
-                </div>
-                <?php if(!empty($sub['teacher'])): ?>
-                <div>
-                    <p style="margin: 0; font-size: 12px; color: #64748b;">Instructor</p>
-                    <p style="margin: 4px 0 0 0; font-size: 14px; font-weight: 600; color: #1e293b;">
-                        👨‍🏫 <?= htmlspecialchars($sub['teacher']) ?>
-                    </p>
-                </div>
-                <?php endif; ?>
-                <?php if(!empty($sub['stored_name'])): ?>
-                <div>
-                    <p style="margin: 0; font-size: 12px; color: #64748b;">File Name</p>
-                    <p style="margin: 4px 0 0 0; font-size: 14px; color: #1e293b;">
-                        📄 <?= htmlspecialchars($sub['stored_name']) ?>
-                    </p>
-                </div>
-                <?php endif; ?>
-            </div>
-            
-            <!-- Status Update -->
-            <?php if ($isAccepted || $isRejected): ?>
-                <div style="background: <?= $isAccepted ? '#d1fae5' : '#fee2e2' ?>; padding: 14px; border-radius: 6px; margin-bottom: 12px; border-left: 4px solid <?= $isAccepted ? '#10b981' : '#ef4444' ?>;">
-                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
-                        <span style="font-size: 18px;"><?= $isAccepted ? '✅' : '❌' ?></span>
-                        <strong style="color: #1e293b;">
-                            <?= $isAccepted ? 'Submission Accepted!' : 'Submission Rejected' ?>
-                        </strong>
-                    </div>
-                    <p style="margin: 0; color: #1e293b; font-size: 14px;">
-                        <?= $isAccepted 
-                            ? 'Great work! Your instructor has reviewed and accepted your submission.' 
-                            : 'Your submission needs revision. Please review the feedback below.' 
-                        ?>
-                    </p>
-                </div>
-            <?php endif; ?>
-            
-            <!-- Instructor Feedback -->
-            <?php if($hasFeedback): ?>
-                <div style="background: #eff6ff; padding: 14px; border-radius: 6px; margin-bottom: 12px; border-left: 4px solid #3b82f6;">
-                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-                        <span style="font-size: 18px;">💬</span>
-                        <strong style="color: #1e293b;">Instructor Feedback</strong>
-                    </div>
-                    <p style="margin: 0; color: #1e293b; white-space: pre-wrap; line-height: 1.6;">
-                        <?= nl2br(htmlspecialchars($sub['feedback'])) ?>
-                    </p>
-                    <p style="margin: 8px 0 0 0; font-size: 12px; color: #64748b;">
-                        <em>— <?= htmlspecialchars($sub['teacher'] ?? 'Your Instructor') ?></em>
-                    </p>
-                </div>
-            <?php endif; ?>
-            
-            <!-- Report Actions -->
-            <?php 
-            $reportPath = $ctrl->getReportPath($sub['id']);
-            if ($reportPath && file_exists($reportPath)): 
-            ?>
-                <div style="background: #f0fdf4; padding: 12px; border-radius: 6px; margin-bottom: 12px;">
-                    <strong style="color: #166534;">📊 Detailed Report Available</strong>
-                    <div style="margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap;">
-                        <a href="view_report.php?id=<?= $sub['id'] ?>" target="_blank" style="display: inline-block; padding: 8px 16px; background: #10b981; color: white; text-decoration: none; border-radius: 6px; font-size: 14px; font-weight: 500;">
-                            👁 View Report
-                        </a>
-                        <a href="download.php?id=<?= $sub['id'] ?>" style="display: inline-block; padding: 8px 16px; background: #3b82f6; color: white; text-decoration: none; border-radius: 6px; font-size: 14px; font-weight: 500;">
-                            📥 Download Report
-                        </a>
-                    </div>
-                </div>
-            <?php endif; ?>
-            
-            <!-- Submission Preview -->
-            <details style="margin-top: 12px;">
-                <summary style="cursor: pointer; color: #3b82f6; font-weight: 500; user-select: none; padding: 8px 0;">
-                    📝 View Submission Text
-                </summary>
-                <div style="background: #f9fafb; padding: 12px; border-radius: 6px; margin-top: 8px; max-height: 200px; overflow-y: auto; border: 1px solid #e2e8f0;">
-                    <p style="margin: 0; color: #4b5563; font-size: 14px; line-height: 1.6; white-space: pre-wrap;">
-                        <?= nl2br(htmlspecialchars($sub['text_content'] ?? '')) ?>
-                    </p>
-                </div>
-            </details>
-        </div>
-    <?php 
-    endforeach; 
-    
-    if (!$hasNotifications): ?>
-        <div style="text-align: center; padding: 60px 20px; color: #64748b;">
-            <div style="font-size: 64px; margin-bottom: 16px; opacity: 0.5;">🔔</div>
-            <h3 style="color: #475569; margin-bottom: 8px; font-size: 20px;">No new notifications</h3>
-            <p style="margin: 0; font-size: 15px;">You'll be notified when your instructor reviews your submissions</p>
-        </div>
-    <?php endif; ?>
-</section>
     <!-- Trash Page -->
     <section id="trashPage" class="page">
         <h1>Trash</h1>
@@ -516,7 +470,6 @@ document.addEventListener('DOMContentLoaded', function(){
                 const badge = document.getElementById('notificationBadge');
                 if(badge) badge.remove();
 
-                // Mark notifications as seen via AJAX
                 fetch('mark_notifications_seen.php', {
                     method: 'POST',
                     headers: {'Content-Type':'application/x-www-form-urlencoded'},
@@ -526,9 +479,7 @@ document.addEventListener('DOMContentLoaded', function(){
         });
     });
 
-    // ============================================
-    // CHAT FUNCTIONALITY - COMPLETELY REWRITTEN
-    // ============================================
+    // Chat functionality
     (function() {
         const chatSelect = document.getElementById('chatInstructorSelect');
         const chatWindow = document.getElementById('chatWindow');
@@ -539,7 +490,6 @@ document.addEventListener('DOMContentLoaded', function(){
         let chatInstructorId = null;
         let fetchInterval = null;
 
-        // Render messages in chat window
         function renderMessages(messages) {
             chatWindow.innerHTML = '';
             
@@ -573,11 +523,9 @@ document.addEventListener('DOMContentLoaded', function(){
                 chatWindow.appendChild(div);
             });
 
-            // Auto-scroll to bottom
             chatWindow.scrollTop = chatWindow.scrollHeight;
         }
 
-        // Fetch messages from server
         async function fetchMessages() {
             if (!chatInstructorId) return;
 
@@ -595,36 +543,29 @@ document.addEventListener('DOMContentLoaded', function(){
             }
         }
 
-        // Handle instructor selection
         chatSelect.addEventListener('change', () => {
             chatInstructorId = chatSelect.value || null;
             
-            // Clear existing interval
             if (fetchInterval) {
                 clearInterval(fetchInterval);
                 fetchInterval = null;
             }
 
             if (chatInstructorId) {
-                // Enable chat input
                 chatInput.disabled = false;
                 chatSendBtn.disabled = false;
                 
-                // Load messages
                 chatWindow.innerHTML = '<p style="text-align:center;color:#64748b;padding:20px;">Loading messages...</p>';
                 fetchMessages();
                 
-                // Auto-refresh every 3 seconds
                 fetchInterval = setInterval(fetchMessages, 3000);
             } else {
-                // Disable chat input
                 chatInput.disabled = true;
                 chatSendBtn.disabled = true;
                 chatWindow.innerHTML = '<p style="text-align:center;color:#64748b;padding:20px;">Select an instructor to start chatting</p>';
             }
         });
 
-        // Send message
         chatForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             
@@ -637,7 +578,7 @@ document.addEventListener('DOMContentLoaded', function(){
             if (!msg) return;
 
             const originalMsg = msg;
-            chatInput.value = ''; // Clear immediately for better UX
+            chatInput.value = '';
 
             const formData = new FormData();
             formData.append('_csrf', '<?= $csrfToken ?>');
@@ -653,10 +594,10 @@ document.addEventListener('DOMContentLoaded', function(){
                 const data = await res.json();
                 
                 if (data.success) {
-                    fetchMessages(); // Immediately fetch new messages
+                    fetchMessages();
                 } else {
                     alert(data.message || 'Failed to send message');
-                    chatInput.value = originalMsg; // Restore message on failure
+                    chatInput.value = originalMsg;
                 }
             } catch (err) {
                 console.error('Send message error:', err);
@@ -665,7 +606,6 @@ document.addEventListener('DOMContentLoaded', function(){
             }
         });
 
-        // Cleanup on page unload
         window.addEventListener('beforeunload', () => {
             if (fetchInterval) {
                 clearInterval(fetchInterval);

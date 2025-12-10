@@ -131,13 +131,20 @@ class SubmissionController {
     /**
      * Delete / restore
      */
-    public function delete(int $id, int $userId){
-        $stmt = $this->conn->prepare("UPDATE submissions SET status='deleted' WHERE id=? AND user_id=?");
-        $stmt->bind_param("ii", $id, $userId);
-        $stmt->execute();
-        $stmt->close();
+ 
+public function delete(int $id, int $userId): bool {
+    $stmt = $this->conn->prepare("UPDATE submissions SET status='deleted' WHERE id=? AND user_id=?");
+    if (!$stmt) {
+        return false;
     }
-
+    
+    $stmt->bind_param("ii", $id, $userId);
+    $stmt->execute();
+    $affected = $stmt->affected_rows;
+    $stmt->close();
+    
+    return $affected > 0;
+}
     public function restore(int $id, int $userId){
         $stmt = $this->conn->prepare("UPDATE submissions SET status='active' WHERE id=? AND user_id=?");
         $stmt->bind_param("ii", $id, $userId);
