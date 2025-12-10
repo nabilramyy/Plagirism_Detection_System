@@ -97,6 +97,7 @@ class InstructorController {
 
         $stats = $this->instructorModel->getStats();
         // FIXED: Changed from $controller to $this
+        $enrolled_students = $this->getEnrolledStudents($instructor_id);
         $submissions = $this->instructorModel->getSubmissions($instructor_id);
         $trash = $this->instructorModel->getTrash($instructor_id);
 
