@@ -187,7 +187,6 @@ function getCourseById($conn, $id) {
               <td><?= htmlspecialchars($sub['title'] ?? $sub['stored_name'] ?? 'Untitled') ?></td>
               <td>
                 <span class="badge">
-                  <?= htmlspecialchars($sub['course_code'] ?? 'N/A') ?>
                 </span>
               </td>
               <td>
@@ -248,7 +247,6 @@ function getCourseById($conn, $id) {
 <div id="deleteConfirmModal" class="modal" style="display:none;">
   <div class="modal-content small">
     <div class="modal-header">
-      <h3>🗑️ Delete Submission</h3>
       <h3>ðŸ—‘ï¸ Delete Submission</h3>
       <button class="close-btn" onclick="this.closest('.modal').style.display='none'">&times;</button>
     </div>
@@ -343,7 +341,6 @@ function getCourseById($conn, $id) {
     '</div>' +
 
     '<div class="submission-details-section">' +
-      '<h4>👤 Student Information</h4>' +
       '<h4>ðŸ‘¤ Student Information</h4>' +
       '<div class="info-grid">' +
         '<div class="info-item">' +
@@ -358,7 +355,6 @@ function getCourseById($conn, $id) {
     '</div>' +
 
     '<div class="submission-details-section">' +
-      '<h4>📊 Plagiarism Analysis</h4>' +
       '<h4>ðŸ“Š Plagiarism Analysis</h4>' +
       '<div class="similarity-display">' +
         '<div class="similarity-info">' +
