@@ -56,13 +56,9 @@ class InstructorController {
     /**
      * Get enrolled students
      */
-  public function getEnrolledStudents($instructor_id)
-{
-    return $this->instructorModel->getEnrolledStudents($instructor_id);
-}
-
-
-
+    public function getEnrolledStudents(): array {
+        return $this->instructorModel->getEnrolledStudents();
+    }
 
     /**
      * Get submissions for instructor
@@ -99,7 +95,7 @@ class InstructorController {
         }
 
         $stats = $this->instructorModel->getStats();
-       $enrolled_students = $controller->getEnrolledStudents($instructor_id);
+        $enrolled_students = $this->instructorModel->getEnrolledStudents();
         $submissions = $this->instructorModel->getSubmissions($instructor_id);
         $trash = $this->instructorModel->getTrash($instructor_id);
 
