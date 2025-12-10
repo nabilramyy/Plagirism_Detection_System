@@ -301,11 +301,37 @@ if ($currentInstructor['id'] != $instructor_id) {
                                     <button type="submit" class="btn btn-feedback" style="margin-top: 10px;">💬 Save Feedback</button>
                                 </form>
                             </div>
-                        <?php endforeach; ?>
-                    <?php endif; ?>
+                        </div>
+                    <?php endforeach; ?>
                 <?php endif; ?>
-            </div>
+            <?php endif; ?>
         </div>
+
+<!-- Chat with Students -->
+<!-- Chat Page -->
+<section class="chat-section" style="background: white; border-radius: 8px; padding: 20px; margin: 20px 30px;">
+    <h2>💬 Chat with Students</h2>
+    
+    <div style="margin-bottom: 20px;">
+        <label for="chatStudentSelect" style="display: block; margin-bottom: 8px; font-weight: 600;">Select Student:</label>
+        <select id="chatStudentSelect" style="width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px;">
+            <option value="">-- Select a Student --</option>
+            <?php if (!empty($enrolled_students)): ?>
+                <?php foreach($enrolled_students as $student): ?>
+                    <option value="<?= htmlspecialchars($student['id']) ?>">
+                        <?= htmlspecialchars($student['name']) ?> (<?= htmlspecialchars($student['email']) ?>)
+                    </option>
+                <?php endforeach; ?>
+            <?php else: ?>
+                <option value="" disabled>No enrolled students</option>
+            <?php endif; ?>
+        </select>
+    </div>
+
+    <div id="chatWindow" style="border: 1px solid #e2e8f0; border-radius: 6px; padding: 15px; height: 400px; overflow-y: auto; background: #f9fafb; margin-bottom: 15px;">
+        <p style="text-align: center; color: #64748b; padding: 20px;">
+            Select a student to start chatting
+        </p>
     </div>
 
     <form id="chatForm" style="display: flex; gap: 10px;">
@@ -349,6 +375,150 @@ if ($currentInstructor['id'] != $instructor_id) {
             alert('Your session has expired. You will be redirected to login.');
             window.location.href = '/Plagirism_Detection_System/logout.php';
         }, SESSION_TIMEOUT);
+      
+(function() {
+    const chatWindow = document.getElementById('chatWindow');
+    const chatStudentSelect = document.getElementById('chatStudentSelect');
+    const chatForm = document.getElementById('chatForm');
+    const chatMessage = document.getElementById('chatMessage');
+    const chatSendBtn = document.getElementById('chatSendBtn');
+
+    let currentStudentId = null;
+    let fetchInterval = null;
+
+    // Render messages in chat window
+    function renderMessages(messages) {
+        chatWindow.innerHTML = '';
+        
+        if (!messages || messages.length === 0) {
+            chatWindow.innerHTML = '<p style="text-align:center;color:#64748b;padding:20px;">No messages yet. Start the conversation!</p>';
+            return;
+        }
+
+        messages.forEach(msg => {
+            const div = document.createElement('div');
+            div.style.marginBottom = '12px';
+            div.style.textAlign = msg.sender === 'instructor' ? 'right' : 'left';
+            
+            const bubble = document.createElement('div');
+            bubble.style.display = 'inline-block';
+            bubble.style.maxWidth = '70%';
+            bubble.style.padding = '10px 14px';
+            bubble.style.borderRadius = '12px';
+            bubble.style.background = msg.sender === 'instructor' ? '#3b82f6' : '#e2e8f0';
+            bubble.style.color = msg.sender === 'instructor' ? 'white' : '#1e293b';
+            bubble.style.textAlign = 'left';
+            bubble.style.wordWrap = 'break-word';
+            
+            bubble.innerHTML = `
+                <strong style="font-size: 12px; opacity: 0.9;">${msg.sender_name}</strong><br>
+                ${msg.message}<br>
+                <small style="font-size: 11px; opacity: 0.8;">${msg.time}</small>
+            `;
+            
+            div.appendChild(bubble);
+            chatWindow.appendChild(div);
+        });
+
+        chatWindow.scrollTop = chatWindow.scrollHeight;
+    }
+
+    // Fetch messages from server
+    async function fetchMessages() {
+        if (!currentStudentId) return;
+
+        try {
+            const res = await fetch(`/Plagirism_Detection_System/Views/instructor/chat_fetch.php?student_id=${currentStudentId}`);
+            const data = await res.json();
+            
+            if (data.success) {
+                renderMessages(data.messages);
+            } else {
+                console.error('Failed to fetch messages:', data.error);
+            }
+        } catch (err) {
+            console.error('Fetch messages error:', err);
+        }
+    }
+
+    // Handle student selection change
+    chatStudentSelect.addEventListener('change', () => {
+        currentStudentId = chatStudentSelect.value || null;
+        
+        // Clear existing interval
+        if (fetchInterval) {
+            clearInterval(fetchInterval);
+            fetchInterval = null;
+        }
+
+        if (currentStudentId) {
+            // Enable chat input
+            chatMessage.disabled = false;
+            chatSendBtn.disabled = false;
+            
+            // Load messages
+            chatWindow.innerHTML = '<p style="text-align:center;color:#64748b;padding:20px;">Loading messages...</p>';
+            fetchMessages();
+            
+            // Auto-refresh every 3 seconds
+            fetchInterval = setInterval(fetchMessages, 3000);
+        } else {
+            // Disable chat input
+            chatMessage.disabled = true;
+            chatSendBtn.disabled = true;
+            chatWindow.innerHTML = '<p style="text-align:center;color:#64748b;padding:20px;">Select a student to start chatting</p>';
+        }
+    });
+
+    // Handle sending message
+    chatForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        if (!currentStudentId || !chatMessage.value.trim()) {
+            return;
+        }
+
+        const message = chatMessage.value.trim();
+        const originalMessage = message;
+        
+        // Clear input immediately for better UX
+        chatMessage.value = '';
+
+        const formData = new FormData();
+        formData.append('_csrf', '<?= $csrf_token ?>');
+        formData.append('student_id', currentStudentId);
+        formData.append('message', message);
+
+        try {
+            const res = await fetch('/Plagirism_Detection_System/Views/instructor/chat_send.php', {
+                method: 'POST',
+                body: formData
+            });
+            
+            const data = await res.json();
+            
+            if (data.success) {
+                // Immediately fetch new messages
+                fetchMessages();
+            } else {
+                alert(data.message || 'Failed to send message.');
+                // Restore message if send failed
+                chatMessage.value = originalMessage;
+            }
+        } catch (err) {
+            console.error('Send message error:', err);
+            alert('Network error. Please check your connection.');
+            chatMessage.value = originalMessage;
+        }
+    });
+
+    // Cleanup on page unload
+    window.addEventListener('beforeunload', () => {
+        if (fetchInterval) {
+            clearInterval(fetchInterval);
+        }
+    });
+})();
     </script>
 </body>
 </html>
