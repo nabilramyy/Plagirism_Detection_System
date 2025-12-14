@@ -1,412 +1,307 @@
 <?php
-namespace Models;
+namespace Controllers;
 
-class Submission {
+require_once __DIR__ . '/../Models/Submission.php';
+require_once __DIR__ . '/../Models/Settings.php';
+require_once __DIR__ . '/../Helpers/Csrf.php';
+require_once __DIR__ . '/../Helpers/Validator.php';
+require_once __DIR__ . '/../Helpers/FileStorage.php';
+
+use Helpers\Csrf;
+use Helpers\Validator;
+use Helpers\FileStorage;
+use Models\Submission;
+use Models\Settings;
+
+class SubmissionController {
     protected $conn;
+    protected $submission;
+    protected $rootPath;
 
-    public function __construct($conn){
+    public function __construct(){
+        $this->rootPath = dirname(__DIR__);
+        require $this->rootPath . '/includes/db.php';
         $this->conn = $conn;
+        if($this->conn->connect_error) die("DB connection failed: ".$this->conn->connect_error);
+        $this->submission = new Submission($this->conn);
     }
 
     /**
-     * Get or create a default "General" course for general submissions
+     * Handle submission
      */
-    private function getOrCreateGeneralCourse(): int {
-        // First, try to find an existing "General" course
-        $stmt = $this->conn->prepare("SELECT id FROM courses WHERE name = 'General Submission' LIMIT 1");
-        if ($stmt) {
-            $stmt->execute();
-            $result = $stmt->get_result();
-            if ($row = $result->fetch_assoc()) {
-                $stmt->close();
-                return intval($row['id']);
-            }
-            $stmt->close();
-        }
+    public function submit(): array {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') { http_response_code(405); exit; }
+        if (!Csrf::verify($_POST['_csrf'] ?? '')) die('Invalid CSRF token');
+
+        $text = Validator::sanitize($_POST['textInput'] ?? '');
+        $instructorId = intval($_POST['instructorSelect'] ?? 0);
+        $userId = intval($_POST['user_id'] ?? 0);
         
-        // If not found, create a default "General" course
-        // We need an instructor_id - use the first available instructor or 0
-        $instructorStmt = $this->conn->prepare("SELECT id FROM users WHERE role='instructor' AND status='active' LIMIT 1");
-        $instructor_id = 0;
-        if ($instructorStmt) {
+        if ($userId <= 0) {
+            die('Invalid user ID. Please log in again.');
+        }
+
+        // Get instructor name for teacher field (for backward compatibility)
+        // If no instructor selected, teacher will be null (general submission)
+        $teacher = null;
+        $courseId = null;
+        
+        if ($instructorId > 0) {
+            $instructorStmt = $this->conn->prepare("SELECT name FROM users WHERE id = ? AND role='instructor'");
+            $instructorStmt->bind_param("i", $instructorId);
             $instructorStmt->execute();
             $instructorResult = $instructorStmt->get_result();
             if ($instructorRow = $instructorResult->fetch_assoc()) {
-                $instructor_id = intval($instructorRow['id']);
+                $teacher = $instructorRow['name'];
             }
             $instructorStmt->close();
         }
-        
-        // Create the General course
-        $insertStmt = $this->conn->prepare("INSERT INTO courses (name, instructor_id) VALUES ('General Submission', ?)");
-        if ($insertStmt) {
-            $insertStmt->bind_param("i", $instructor_id);
-            $insertStmt->execute();
-            $generalCourseId = $insertStmt->insert_id;
-            $insertStmt->close();
-            return $generalCourseId;
+
+        $fileInfo = null;
+        if (isset($_FILES['fileInput']) && $_FILES['fileInput']['name']) {
+            try { $fileInfo = FileStorage::store($_FILES['fileInput']); } 
+            catch (\Exception $ex) { die("File upload error: ".$ex->getMessage()); }
+
+            $textFromFile = $this->extractFileText($fileInfo['path']);
+            if ($textFromFile) $text .= ' ' . $textFromFile;
         }
+
+        // Check plagiarism and get matching words
+        $plagData = $this->checkPlagiarism($text);
+
+        // Get plagiarism threshold from settings
+        $settings = new Settings($this->conn);
+        $threshold = floatval($settings->get('plagiarism_threshold', 50));
+        $similarity = $plagData['plagiarised'];
         
-        // Fallback: if we can't create, try to use course_id = 1 (first course)
-        $fallbackStmt = $this->conn->query("SELECT id FROM courses LIMIT 1");
-        if ($fallbackStmt && $fallbackRow = $fallbackStmt->fetch_assoc()) {
-            return intval($fallbackRow['id']);
-        }
-        
-        // Last resort: return 1 (hopefully exists)
-        return 1;
-    }
+        // Check if similarity exceeds threshold
+        $exceedsThreshold = $similarity > $threshold;
+        $alertMessage = $exceedsThreshold 
+            ? "⚠️ WARNING: This submission has a similarity score of {$similarity}%, which exceeds the threshold of {$threshold}%!"
+            : null;
 
-    /**
-     * Create a new submission
-     */
-    public function create(array $data): int {
-        $sql = "
-            INSERT INTO submissions 
-            (user_id, course_id, teacher, text_content, file_path, stored_name, file_size, similarity, exact_match, partial_match, status, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', NOW())
-        ";
-
-        $stmt = $this->conn->prepare($sql);
-        if (!$stmt) die("Prepare failed: ".$this->conn->error);
-
-        // Get course_id - use provided one or get/create general course
-        if (isset($data['course_id']) && $data['course_id'] > 0) {
-            $course_id = intval($data['course_id']);
-        } else {
-            // For general submissions, get or create a "General Submission" course
-            $course_id = $this->getOrCreateGeneralCourse();
-        }
-        
-        $teacher = $data['teacher'] ?? null;
-
-        $stmt->bind_param(
-            "iissssiiii",
-            $data['user_id'],
-            $course_id,
-            $teacher,
-            $data['text_content'],
-            $data['file_path'],
-            $data['stored_name'],
-            $data['file_size'],
-            $data['similarity'],
-            $data['exact_match'],
-            $data['partial_match']
-        );
-
-        if (!$stmt->execute()) die("Execute failed: ".$stmt->error);
-
-        $id = $stmt->insert_id;
-        $stmt->close();
-        return $id;
-    }
-
-    /**
-     * Get submissions for a user with optional status
-     */
-    public function getByUser(int $uid, string $status = 'active'): array {
-        $stmt = $this->conn->prepare("
-            SELECT * FROM submissions WHERE user_id = ? AND status=? ORDER BY created_at DESC
-        ");
-        $stmt->bind_param("is", $uid, $status);
-        $stmt->execute();
-        $res = $stmt->get_result();
-        $rows = $res->fetch_all(MYSQLI_ASSOC);
-        $stmt->close();
-        return $rows;
-    }
-
-    /**
-     * Find submission by ID
-     */
-    public function find(int $id): ?array {
-        $stmt = $this->conn->prepare("SELECT * FROM submissions WHERE id = ?");
-        $stmt->bind_param("i", $id);
-        $stmt->execute();
-        $res = $stmt->get_result();
-        $row = $res->fetch_assoc();
-        $stmt->close();
-        return $row ?: null;
-    }
-
-    /**
-     * Get all active submissions text for plagiarism comparison
-     */
-    public function getAllSubmissions(): array {
-        $res = $this->conn->query("SELECT text_content FROM submissions WHERE status='active'");
-        return $res ? $res->fetch_all(MYSQLI_ASSOC) : [];
-    }
-
-    /**
-     * Get ALL submissions (for admin)
-     * No user filter - returns everything
-     */
-    public function getAll($limit = 100, $offset = 0) {
-        $sql = "SELECT * FROM submissions ORDER BY created_at DESC LIMIT ? OFFSET ?";
-        $stmt = $this->conn->prepare($sql);
-        
-        if (!$stmt) {
-            die("Prepare failed: " . $this->conn->error);
-        }
-        
-        $stmt->bind_param("ii", $limit, $offset);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        $rows = $result->fetch_all(MYSQLI_ASSOC);
-        $stmt->close();
-        
-        return $rows;
-    }
-
-    /**
-     * Delete a submission by ID
-     */
-public function deleteByStudent(int $id, int $userId): bool {
-    $stmt = $this->conn->prepare("UPDATE submissions SET status='deleted' WHERE id=? AND user_id=?");
-    $stmt->bind_param("ii", $id, $userId);
-    $stmt->execute();
-    $affected = $stmt->affected_rows;
-    $stmt->close();
-    
-    return $affected > 0;
-}
-
-    /**
-     * Update submission fields
-     */
-    public function update($id, $data) {
-        $setClauses = [];
-        $params = [];
-        $types = "";
-
-        $allowedFields = [
-            'status' => 's',
-            'similarity' => 'i',
-            'exact_match' => 'i',
-            'partial_match' => 'i',
-            'course_id' => 'i',
-            'instructor_id' => 'i',
-            'teacher' => 's',
-            'text_content' => 's'
+        $data = [
+            'user_id' => $userId,
+            'course_id' => $courseId > 0 ? $courseId : 0,
+            'teacher' => $teacher,
+            'text_content' => $text,
+            'file_path' => $fileInfo['path'] ?? null,
+            'stored_name' => $fileInfo['stored'] ?? null,
+            'file_size' => $fileInfo['size'] ?? 0,
+            'similarity' => $similarity,
+            'exact_match' => $plagData['exact'],
+            'partial_match' => $plagData['partial']
         ];
 
-        foreach ($data as $field => $value) {
-            if (isset($allowedFields[$field])) {
-                $setClauses[] = "$field = ?";
-                $params[] = $value;
-                $types .= $allowedFields[$field];
-            }
-        }
+        $id = $this->submission->create($data);
+        $reportPath = $this->generateReport($id, $plagData, $text, $plagData['matchingWords']);
 
-        if (empty($setClauses)) {
-            return false;
-        }
-
-        $sql = "UPDATE submissions SET " . implode(", ", $setClauses) . " WHERE id = ?";
-        $params[] = $id;
-        $types .= "i";
-
-        $stmt = $this->conn->prepare($sql);
-        
-        if (!$stmt) {
-            die("Prepare failed: " . $this->conn->error);
-        }
-
-        $stmt->bind_param($types, ...$params);
-        $success = $stmt->execute();
-        $stmt->close();
-
-        return $success;
+        return [
+            'submission_id' => $id,
+            'plagiarised' => $similarity,
+            'exact' => $plagData['exact'],
+            'partial' => $plagData['partial'],
+            'reportPath' => $reportPath,
+            'exceeds_threshold' => $exceedsThreshold,
+            'threshold' => $threshold,
+            'alert_message' => $alertMessage
+        ];
     }
 
     /**
-     * Count total submissions (for statistics)
+     * Download report
      */
-    public function count($conditions = []) {
-        $sql = "SELECT COUNT(*) as total FROM submissions WHERE 1=1";
-        $params = [];
-        $types = "";
+    public function downloadReport($id){
+        $storageDir = $this->rootPath . '/storage/reports';
+        $files = glob($storageDir."/report_{$id}_*.html");
+        if(!$files) die('Report not found.');
 
-        if (isset($conditions['status'])) {
-            $sql .= " AND status = ?";
-            $params[] = $conditions['status'];
-            $types .= "s";
-        }
+        $path = $files[0];
+        header('Content-Description: File Transfer');
+        header('Content-Type: application/octet-stream');
+        header('Content-Disposition: attachment; filename="'.basename($path).'"');
+        header('Expires: 0');
+        header('Cache-Control: must-revalidate');
+        header('Pragma: public');
+        header('Content-Length: ' . filesize($path));
+        readfile($path);
+        exit;
+    }
 
-        if (isset($conditions['min_similarity'])) {
-            $sql .= " AND similarity >= ?";
-            $params[] = $conditions['min_similarity'];
-            $types .= "i";
-        }
-
-        if (isset($conditions['max_similarity'])) {
-            $sql .= " AND similarity <= ?";
-            $params[] = $conditions['max_similarity'];
-            $types .= "i";
-        }
-
-        if (isset($conditions['user_id'])) {
-            $sql .= " AND user_id = ?";
-            $params[] = $conditions['user_id'];
-            $types .= "i";
-        }
-
-        if (isset($conditions['course_id'])) {
-            $sql .= " AND course_id = ?";
-            $params[] = $conditions['course_id'];
-            $types .= "i";
-        }
-
-        $stmt = $this->conn->prepare($sql);
-        
-        if (!empty($params)) {
-            $stmt->bind_param($types, ...$params);
-        }
-        
+    /**
+     * Delete / restore
+     */
+    public function delete($submissionId, $studentId)
+    {
+        $stmt = $this->conn->prepare("SELECT user_id FROM submissions WHERE id = ?");
+        $stmt->bind_param("i", $submissionId);
         $stmt->execute();
         $result = $stmt->get_result();
         $row = $result->fetch_assoc();
         $stmt->close();
 
-        return $row['total'];
-    }
-
-    /**
-     * Get submissions by course
-     */
-    public function getByCourse($courseId) {
-        $stmt = $this->conn->prepare(
-            "SELECT * FROM submissions WHERE course_id = ? ORDER BY created_at DESC"
-        );
-        $stmt->bind_param("i", $courseId);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        $rows = $result->fetch_all(MYSQLI_ASSOC);
-        $stmt->close();
-        
-        return $rows;
-    }
-
-    /**
-     * Get submissions by instructor
-     */
-    public function getByInstructor($instructorId) {
-        $stmt = $this->conn->prepare(
-            "SELECT * FROM submissions WHERE instructor_id = ? ORDER BY created_at DESC"
-        );
-        $stmt->bind_param("i", $instructorId);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        $rows = $result->fetch_all(MYSQLI_ASSOC);
-        $stmt->close();
-        
-        return $rows;
-    }
-
-    /**
-     * Get average similarity score
-     */
-    public function getAverageSimilarity($conditions = []) {
-        $sql = "SELECT AVG(similarity) as avg FROM submissions WHERE similarity IS NOT NULL";
-        $params = [];
-        $types = "";
-
-        if (isset($conditions['course_id'])) {
-            $sql .= " AND course_id = ?";
-            $params[] = $conditions['course_id'];
-            $types .= "i";
+        if (!$row) {
+            return "invalid";
         }
 
-        $stmt = $this->conn->prepare($sql);
-        
-        if (!empty($params)) {
-            $stmt->bind_param($types, ...$params);
+        if ($row['user_id'] != $studentId) {
+            return "unauthorized";
         }
-        
+
+        // Soft delete: move to trash
+        $stmt = $this->conn->prepare("UPDATE submissions SET status='trash' WHERE id=? AND user_id=?");
+        $stmt->bind_param("ii", $submissionId, $studentId);
         $stmt->execute();
-        $result = $stmt->get_result();
-        $row = $result->fetch_assoc();
+        $success = $stmt->affected_rows > 0;
         $stmt->close();
 
-        return $row['avg'] ? round($row['avg'], 1) : 0;
+        return $success ? "success" : "failed";
+    }
+
+    public function restore(int $id, int $userId){
+        // Restore to 'active' status (so it appears in main list again)
+        $stmt = $this->conn->prepare("UPDATE submissions SET status='active' WHERE id=? AND user_id=?");
+        $stmt->bind_param("ii", $id, $userId);
+        $stmt->execute();
+        $stmt->close();
     }
 
     /**
-     * Add or update feedback for a submission
+     * Get user submissions - COMPLETE FIX
+     * 
+     * @param int $userId
+     * @param string $filter 'active' = non-deleted, 'deleted' = trash only
+     * @return array
      */
-    public function addFeedback(int $submission_id, string $feedback): bool {
-        $stmt = $this->conn->prepare("UPDATE submissions SET feedback = ? WHERE id = ?");
-        if (!$stmt) {
-            die("Prepare failed: " . $this->conn->error);
+    public function getUserSubmissions(int $userId, string $filter = 'active'): array {
+        if ($filter === 'deleted') {
+            // Get only trashed submissions
+            return $this->submission->getByUser($userId, 'trash');
         }
         
-        $stmt->bind_param("si", $feedback, $submission_id);
-        $success = $stmt->execute();
-        $stmt->close();
+        // CRITICAL FIX: Get ALL non-trashed submissions
+        // This includes: active, accepted, rejected, pending
+        $stmt = $this->conn->prepare("
+            SELECT s.* 
+            FROM submissions s
+            WHERE s.user_id = ? 
+            AND s.status NOT IN ('trash', 'deleted')
+            ORDER BY s.created_at DESC
+        ");
         
-        return $success;
+        $stmt->bind_param("i", $userId);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        
+        $submissions = [];
+        while ($row = $result->fetch_assoc()) {
+            $submissions[] = $row;
+        }
+        
+        $stmt->close();
+        return $submissions;
     }
 
     /**
      * Get report path for a submission
      */
     public function getReportPath(int $submission_id): ?string {
-        $storageDir = dirname(__DIR__) . '/storage/reports';
-        $files = glob($storageDir . "/report_{$submission_id}_*.html");
-        
-        if (!empty($files)) {
-            return $files[0];
-        }
-        
-        return null;
+        return $this->submission->getReportPath($submission_id);
     }
 
     /**
-     * Accept a submission (set status to 'accepted')
+     * Extract text from file
      */
-    public function accept(int $submission_id): bool {
-        $stmt = $this->conn->prepare("UPDATE submissions SET status = 'accepted' WHERE id = ?");
-        if (!$stmt) {
-            return false;
+    protected function extractFileText(string $filePath): string {
+        $ext = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
+        if ($ext === 'txt') return file_get_contents($filePath);
+
+        if ($ext === 'docx') {
+            $text = '';
+            $zip = new \ZipArchive;
+            if ($zip->open($filePath) === true) {
+                if (($index = $zip->locateName('word/document.xml')) !== false) {
+                    $xml = $zip->getFromIndex($index);
+                    $xml = str_replace(['<w:p>', '<w:br/>'], ["\n", "\n"], $xml);
+                    $text = strip_tags($xml);
+                }
+                $zip->close();
+            }
+            return $text;
         }
-        
-        $stmt->bind_param("i", $submission_id);
-        $success = $stmt->execute();
-        $stmt->close();
-        
-        return $success;
+
+        return '';
     }
 
     /**
-     * Reject a submission (set status to 'rejected')
+     * Plagiarism check (5-word chunks)
      */
-    public function reject(int $submission_id): bool {
-        $stmt = $this->conn->prepare("UPDATE submissions SET status = 'rejected' WHERE id = ?");
-        if (!$stmt) {
-            return false;
+    protected function checkPlagiarism(string $text): array {
+        $existing = $this->submission->getAllSubmissions();
+        $words = preg_split('/\s+/', strtolower($text));
+        $totalChunks = max(1, count($words) - 4);
+        $matchCount = 0;
+        $matchingWords = [];
+
+        for ($i = 0; $i < $totalChunks; $i++) {
+            $chunk = implode(' ', array_slice($words, $i, 5));
+            foreach ($existing as $sub) {
+                $subText = strtolower($sub['text_content']);
+                if (strpos($subText, $chunk) !== false) {
+                    $matchCount++;
+                    $matchingWords = array_merge($matchingWords, array_slice($words, $i, 5));
+                    break;
+                }
+            }
         }
-        
-        $stmt->bind_param("i", $submission_id);
-        $success = $stmt->execute();
-        $stmt->close();
-        
-        return $success;
+
+        $plagPercent = ($matchCount / $totalChunks) * 100;
+        $exact = intval($plagPercent * 0.3);
+        $partial = intval($plagPercent - $exact);
+
+        return [
+            'plagiarised' => round($plagPercent,2),
+            'exact' => $exact,
+            'partial' => $partial,
+            'matchingWords' => array_unique($matchingWords)
+        ];
     }
 
     /**
-     * Move a submission to trash (set status to 'deleted')
+     * Generate HTML report with highlighted words
      */
-    public function moveToTrash(int $submission_id): bool {
-        $stmt = $this->conn->prepare("UPDATE submissions SET status = 'deleted' WHERE id = ?");
-        if (!$stmt) {
-            return false;
+    protected function generateReport($id, $plag, $text, $matchingWords = []): string {
+        $storageDir = $this->rootPath . '/storage/reports';
+        if (!is_dir($storageDir)) mkdir($storageDir, 0755, true);
+
+        $filename = "report_{$id}_" . time() . ".html";
+        $path = $storageDir . '/' . $filename;
+
+        $highlightedText = $text;
+        foreach ($matchingWords as $word) {
+            $highlightedText = preg_replace('/\b(' . preg_quote($word, '/') . ')\b/i', '<mark>$1</mark>', $highlightedText);
         }
-        
-        $stmt->bind_param("i", $submission_id);
-        $success = $stmt->execute();
-        $stmt->close();
-        
-        return $success;
+
+        $content = "<!DOCTYPE html>
+<html lang='en'>
+<head>
+<meta charset='UTF-8'>
+<title>Submission Report #$id</title>
+<style>body{font-family:Arial,sans-serif;padding:20px;} mark{background:yellow;} .summary{margin-top:20px;}</style>
+</head>
+<body>
+<h1>Report for Submission #$id</h1>
+<div class='summary'>
+<p><strong>Plagiarised:</strong> {$plag['plagiarised']}%</p>
+<p><strong>Exact Match:</strong> {$plag['exact']}%</p>
+<p><strong>Partial Match:</strong> {$plag['partial']}%</p>
+</div>
+<h2>Text with highlighted matches</h2>
+<p>$highlightedText</p>
+</body>
+</html>";
+
+        file_put_contents($path, $content);
+        return '/Plagirism_Detection_System/storage/reports/' . $filename;
     }
 }
-?>
