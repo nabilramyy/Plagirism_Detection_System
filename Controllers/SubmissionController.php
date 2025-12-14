@@ -131,29 +131,79 @@ class SubmissionController {
     /**
      * Delete / restore
      */
- 
-public function delete(int $id, int $userId): bool {
-    $stmt = $this->conn->prepare("UPDATE submissions SET status='deleted' WHERE id=? AND user_id=?");
-    if (!$stmt) {
-        return false;
+    public function delete($submissionId, $studentId)
+    {
+        // Load model properly with DB connection
+        $submission = new Submission($this->conn);
+
+        // Correct method: get submission by its ID
+        $stmt = $this->conn->prepare("SELECT user_id FROM submissions WHERE id = ?");
+        $stmt->bind_param("i", $submissionId);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $row = $result->fetch_assoc();
+        $stmt->close();
+
+        if (!$row) {
+            return "invalid"; // submission does not exist
+        }
+
+        // Check ownership
+        if ($row['user_id'] != $studentId) {
+            return "unauthorized"; // not your submission
+        }
+
+        // Soft delete: move to trash
+        $stmt = $this->conn->prepare("UPDATE submissions SET status='trash' WHERE id=? AND user_id=?");
+        $stmt->bind_param("ii", $submissionId, $studentId);
+        $stmt->execute();
+        $success = $stmt->affected_rows > 0;
+        $stmt->close();
+
+        return $success ? "success" : "failed";
     }
-    
-    $stmt->bind_param("ii", $id, $userId);
-    $stmt->execute();
-    $affected = $stmt->affected_rows;
-    $stmt->close();
-    
-    return $affected > 0;
-}
+
     public function restore(int $id, int $userId){
-        $stmt = $this->conn->prepare("UPDATE submissions SET status='active' WHERE id=? AND user_id=?");
+        // Restore to pending status (not active or accepted)
+        $stmt = $this->conn->prepare("UPDATE submissions SET status='pending' WHERE id=? AND user_id=?");
         $stmt->bind_param("ii", $id, $userId);
         $stmt->execute();
         $stmt->close();
     }
 
-    public function getUserSubmissions(int $userId, string $status = 'active'): array {
-        return $this->submission->getByUser($userId, $status);
+    /**
+     * Get user submissions - FIXED to include accepted/rejected/pending
+     * 
+     * @param int $userId
+     * @param string $filter 'active' (all non-trashed) or 'deleted' (trashed only)
+     * @return array
+     */
+    public function getUserSubmissions(int $userId, string $filter = 'active'): array {
+        if ($filter === 'deleted') {
+            // Get only trashed submissions
+            return $this->submission->getByUser($userId, 'trash');
+        }
+        
+        // Get ALL non-trashed submissions (pending, accepted, rejected, active)
+        // This is the key fix - we want to show accepted/rejected submissions!
+        $stmt = $this->conn->prepare("
+            SELECT s.*, u.name as teacher
+            FROM submissions s
+            LEFT JOIN users u ON s.course_id = u.id AND u.role = 'instructor'
+            WHERE s.user_id = ? AND s.status != 'trash'
+            ORDER BY s.created_at DESC
+        ");
+        $stmt->bind_param("i", $userId);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        
+        $submissions = [];
+        while ($row = $result->fetch_assoc()) {
+            $submissions[] = $row;
+        }
+        
+        $stmt->close();
+        return $submissions;
     }
 
     /**
