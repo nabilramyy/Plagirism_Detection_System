@@ -161,20 +161,15 @@ class Submission {
     /**
      * Delete a submission by ID
      */
-    public function delete($id) {
-        $stmt = $this->conn->prepare("DELETE FROM submissions WHERE id = ?");
-        
-        if (!$stmt) {
-            die("Prepare failed: " . $this->conn->error);
-        }
-        
-        $stmt->bind_param("i", $id);
-        $success = $stmt->execute();
-        $affected = $stmt->affected_rows;
-        $stmt->close();
-        
-        return $affected > 0;
-    }
+public function deleteByStudent(int $id, int $userId): bool {
+    $stmt = $this->conn->prepare("UPDATE submissions SET status='deleted' WHERE id=? AND user_id=?");
+    $stmt->bind_param("ii", $id, $userId);
+    $stmt->execute();
+    $affected = $stmt->affected_rows;
+    $stmt->close();
+    
+    return $affected > 0;
+}
 
     /**
      * Update submission fields
