@@ -1,6 +1,7 @@
 <?php
 /**
  * User Model - Handles all user database operations
+ * Updated with status field support
  */
 class User {
     private $db;
@@ -11,6 +12,7 @@ class User {
     private $mobile;
     private $country;
     private $role;
+    private $status;
     private $admin_key;
     
     public function __construct() {
@@ -34,6 +36,7 @@ class User {
     public function getName() { return $this->name; }
     public function getEmail() { return $this->email; }
     public function getRole() { return $this->role; }
+    public function getStatus() { return $this->status; }
     public function getAdminKey() { return $this->admin_key; }
     public function getHashedPassword() { return $this->password; }
     
@@ -62,6 +65,10 @@ class User {
         $this->role = trim($role); 
     }
     
+    public function setStatus($status) {
+        $this->status = trim($status);
+    }
+    
     // ========== DATABASE OPERATIONS ==========
     
     /**
@@ -84,6 +91,7 @@ class User {
             $this->email = $row['email'];
             $this->password = $row['password'];
             $this->role = $row['role'];
+            $this->status = $row['status'] ?? 'active'; // Default to active if not set
             $this->admin_key = $row['admin_key'] ?? null;
             $stmt->close();
             return true;
@@ -107,6 +115,13 @@ class User {
         $exists = $stmt->num_rows > 0;
         $stmt->close();
         return $exists;
+    }
+    
+    /**
+     * Check if user is banned
+     */
+    public function isBanned() {
+        return $this->status === 'banned';
     }
     
     /**
@@ -137,6 +152,7 @@ class User {
             $this->password = $row['password'];
             $this->mobile = $row['mobile'];
             $this->role = $row['role'];
+            $this->status = $row['status'] ?? 'active';
             $stmt->close();
             return true;
         }
@@ -162,23 +178,42 @@ class User {
     }
     
     /**
+     * Update user status
+     */
+    public function updateStatus($userId, $status) {
+        $stmt = $this->db->prepare("UPDATE users SET status = ? WHERE id = ?");
+        if (!$stmt) {
+            die("Prepare failed: " . $this->db->error);
+        }
+        
+        $stmt->bind_param("si", $status, $userId);
+        $success = $stmt->execute();
+        $stmt->close();
+        return $success;
+    }
+    
+    /**
      * Save new user to database
      */
     public function save() {
+        // Default status to 'active' for new users
+        $defaultStatus = 'active';
+        
         $stmt = $this->db->prepare(
-            "INSERT INTO users (name, email, mobile, country, password, role) VALUES (?, ?, ?, ?, ?, ?)"
+            "INSERT INTO users (name, email, mobile, country, password, role, status) VALUES (?, ?, ?, ?, ?, ?, ?)"
         );
         if (!$stmt) {
             die("Prepare failed: " . $this->db->error);
         }
         
-        $stmt->bind_param("ssssss", 
+        $stmt->bind_param("sssssss", 
             $this->name, 
             $this->email, 
             $this->mobile, 
             $this->country, 
             $this->password, 
-            $this->role
+            $this->role,
+            $defaultStatus
         );
         
         $success = $stmt->execute();

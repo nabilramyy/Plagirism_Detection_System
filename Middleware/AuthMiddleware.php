@@ -8,6 +8,7 @@ use Helpers\SessionManager;
 /**
  * AuthMiddleware - Handles authentication and authorization
  * Implements Authorization Matrix
+ * Updated with ban status logging
  */
 class AuthMiddleware {
     
@@ -195,19 +196,33 @@ class AuthMiddleware {
     
     /**
      * Log authentication attempt (for security auditing)
+     * Updated with ban reason support
      */
-    public function logAuthAttempt($success, $username, $ipAddress) {
+    public function logAuthAttempt($success, $username, $ipAddress, $reason = '') {
         // In production, log to database or file
         $logEntry = sprintf(
-            "[%s] %s login attempt for '%s' from IP: %s\n",
+            "[%s] %s login attempt for '%s' from IP: %s",
             date('Y-m-d H:i:s'),
             $success ? 'SUCCESS' : 'FAILED',
             $username,
             $ipAddress
         );
         
+        // Add reason if provided (e.g., 'banned')
+        if (!empty($reason)) {
+            $logEntry .= " | Reason: " . strtoupper($reason);
+        }
+        
+        $logEntry .= "\n";
+        
         // Log to file (create logs directory first)
-        $logFile = __DIR__ . '/../../storage/logs/auth.log';
+        $logDir = __DIR__ . '/../../storage/logs';
+        if (!file_exists($logDir)) {
+            mkdir($logDir, 0755, true);
+        }
+        
+        $logFile = $logDir . '/auth.log';
         @file_put_contents($logFile, $logEntry, FILE_APPEND);
     }
 }
+?>

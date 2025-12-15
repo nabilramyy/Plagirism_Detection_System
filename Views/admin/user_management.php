@@ -1,7 +1,7 @@
 <?php
 /**
- * Protected Admin User Management View - Enhanced with AJAX
- * Features: Search, Pagination, AJAX CRUD operations
+ * Protected Admin User Management View - Enhanced with Admin Key Support
+ * Features: Search, Pagination, AJAX CRUD operations, Admin Secret Key
  */
 
 // Security check
@@ -146,12 +146,24 @@ if (!$session->isLoggedIn() || $session->getUserRole() !== 'admin') {
           <label for="addRole">
             <i class="fas fa-user-tag"></i> Role
           </label>
-          <select id="addRole" name="role" class="form-input" required>
+          <select id="addRole" name="role" class="form-input" required onchange="toggleAdminKeyField('add')">
             <option value="">Select Role</option>
             <option value="student">Student</option>
             <option value="instructor">Instructor</option>
             <option value="admin">Admin</option>
           </select>
+        </div>
+
+        <div class="form-group" id="addAdminKeyGroup" style="display:none;">
+          <label for="addAdminKey">
+            <i class="fas fa-key"></i> Admin Secret Key
+          </label>
+          <input type="text" 
+                 id="addAdminKey" 
+                 name="admin_key" 
+                 class="form-input" 
+                 placeholder="Enter admin secret key">
+          <small class="form-hint">Required for admin role. Keep this secure!</small>
         </div>
 
         <div class="modal-actions">
@@ -205,11 +217,23 @@ if (!$session->isLoggedIn() || $session->getUserRole() !== 'admin') {
           <label for="editRole">
             <i class="fas fa-user-tag"></i> Role
           </label>
-          <select id="editRole" name="role" class="form-input" required>
+          <select id="editRole" name="role" class="form-input" required onchange="toggleAdminKeyField('edit')">
             <option value="student">Student</option>
             <option value="instructor">Instructor</option>
             <option value="admin">Admin</option>
           </select>
+        </div>
+
+        <div class="form-group" id="editAdminKeyGroup" style="display:none;">
+          <label for="editAdminKey">
+            <i class="fas fa-key"></i> Admin Secret Key
+          </label>
+          <input type="text" 
+                 id="editAdminKey" 
+                 name="admin_key" 
+                 class="form-input" 
+                 placeholder="Enter new admin secret key (leave blank to keep current)">
+          <small class="form-hint">Leave blank to keep existing key</small>
         </div>
 
         <div class="form-group">
@@ -261,3 +285,27 @@ if (!$session->isLoggedIn() || $session->getUserRole() !== 'admin') {
 </div>
 
 <script src="/Plagirism_Detection_System/assets/js/admin_users.js"></script>
+<script>
+function toggleAdminKeyField(mode) {
+    const roleSelect = document.getElementById(mode + 'Role');
+    const adminKeyGroup = document.getElementById(mode + 'AdminKeyGroup');
+    const adminKeyInput = document.getElementById(mode + 'AdminKey');
+
+    if (!roleSelect) return;
+
+    if (roleSelect.value === 'admin') {
+        adminKeyGroup.style.display = 'block';
+        adminKeyInput.required = true;
+    } else {
+        adminKeyGroup.style.display = 'none';
+        adminKeyInput.required = false;
+        adminKeyInput.value = '';
+    }
+}
+
+// Run on page load (important part)
+document.addEventListener('DOMContentLoaded', function () {
+    toggleAdminKeyField('add');   // if you have add form
+    toggleAdminKeyField('edit');  // if you have edit form
+});
+</script>

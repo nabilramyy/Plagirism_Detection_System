@@ -4,14 +4,17 @@ namespace Helpers;
 /**
  * SessionManager - Centralized session handling and authentication
  * Follows Single Responsibility Principle
+ * Updated with active session ban check
  */
 class SessionManager {
     
     private static $instance = null;
     private $sessionTimeout = 3600; // 1 hour default
+    private $db = null;
     
     private function __construct() {
         $this->initSession();
+        $this->initDatabase();
     }
     
     /**
@@ -22,6 +25,25 @@ class SessionManager {
             self::$instance = new self();
         }
         return self::$instance;
+    }
+    
+    /**
+     * Initialize database connection for ban checks
+     */
+    private function initDatabase() {
+        $host = "localhost";
+        $user = "root";
+        $pass = "";
+        $dbname = "pal";
+        
+        $this->db = new \mysqli($host, $user, $pass, $dbname);
+        
+        if ($this->db->connect_error) {
+            error_log("SessionManager DB connection failed: " . $this->db->connect_error);
+            $this->db = null;
+        } else {
+            $this->db->set_charset("utf8");
+        }
     }
     
     /**
@@ -50,7 +72,7 @@ class SessionManager {
     }
     
     /**
-     * Validate session integrity
+     * Validate session integrity and check if user is banned
      */
     private function validateSession() {
         // Check user agent consistency
@@ -71,8 +93,53 @@ class SessionManager {
             }
         }
         
+        // **NEW: Check if logged-in user is banned**
+        if ($this->isLoggedIn()) {
+            if ($this->checkUserBanned()) {
+                // User was banned while logged in - destroy session
+                $this->destroy();
+                
+                // Set error message for login page
+                session_start(); // Restart session to show message
+                $_SESSION['auth_error'] = 'Your account has been banned. Please contact the administrator.';
+                
+                // Redirect to login
+                header("Location: /Plagirism_Detection_System/signup.php");
+                exit();
+            }
+        }
+        
         $_SESSION['last_activity'] = time();
         return true;
+    }
+    
+    /**
+     * Check if current user is banned in database
+     */
+    private function checkUserBanned() {
+        if (!$this->db || !isset($_SESSION['user_id'])) {
+            return false;
+        }
+        
+        $userId = intval($_SESSION['user_id']);
+        
+        $stmt = $this->db->prepare("SELECT status FROM users WHERE id = ?");
+        if (!$stmt) {
+            return false;
+        }
+        
+        $stmt->bind_param("i", $userId);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        
+        if ($result->num_rows > 0) {
+            $row = $result->fetch_assoc();
+            $stmt->close();
+            return ($row['status'] === 'banned');
+        }
+        
+        $stmt->close();
+        return false;
     }
     
     /**
@@ -163,4 +230,14 @@ class SessionManager {
     public function getSessionData() {
         return $_SESSION;
     }
+    
+    /**
+     * Cleanup database connection
+     */
+    public function __destruct() {
+        if ($this->db) {
+            $this->db->close();
+        }
+    }
 }
+?>

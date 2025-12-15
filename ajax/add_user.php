@@ -42,7 +42,7 @@ $name = Validator::sanitize($_POST['name'] ?? '');
 $email = Validator::sanitize($_POST['email'] ?? '');
 $role = Validator::sanitize($_POST['role'] ?? '');
 $password = $_POST['password'] ?? '';
-
+$adminKey = isset($_POST['admin_key']) ? Validator::sanitize($_POST['admin_key']) : null;
 // Validation
 $errors = [];
 
@@ -66,6 +66,13 @@ if (strlen($password) < 8) {
 if (!preg_match("/^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*\/])[A-Za-z\d!@#$%^&*\/]{8,}$/", $password)) {
     $errors[] = 'Password must contain uppercase, number, and special character';
 }
+if ($role === 'admin') {
+    if (empty($adminKey)) {
+        $errors[] = 'Admin secret key is required for admin role';
+    } elseif (strlen($adminKey) < 6) {
+        $errors[] = 'Admin secret key must be at least 6 characters';
+    }
+}
 
 if (!empty($errors)) {
     echo json_encode(['success' => false, 'message' => implode(', ', $errors)]);
@@ -87,15 +94,25 @@ $checkStmt->close();
 $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
 
 // Insert user
-$stmt = $conn->prepare("INSERT INTO users (name, email, password, role, status, created_at) VALUES (?, ?, ?, ?, 'active', NOW())");
-$stmt->bind_param("ssss", $name, $email, $hashedPassword, $role);
+if ($role === 'admin') {
+    $stmt = $conn->prepare("INSERT INTO users (name, email, password, role, admin_key, status, created_at) VALUES (?, ?, ?, ?, ?, 'active', NOW())");
+    $stmt->bind_param("sssss", $name, $email, $hashedPassword, $role, $adminKey);
+} else {
+    $stmt = $conn->prepare("INSERT INTO users (name, email, password, role, status, created_at) VALUES (?, ?, ?, ?, 'active', NOW())");
+    $stmt->bind_param("ssss", $name, $email, $hashedPassword, $role);
+}
 
 if ($stmt->execute()) {
     $newUserId = $stmt->insert_id;
     $stmt->close();
     
     // Log action
-    $logMsg = "[" . date('Y-m-d H:i:s') . "] Admin {$session->getUserName()} added user: {$name} ({$email}) as {$role}\n";
+    // Log action
+    $logMsg = "[" . date('Y-m-d H:i:s') . "] Admin {$session->getUserName()} added user: {$name} ({$email}) as {$role}";
+    if ($role === 'admin') {
+        $logMsg .= " with admin key";
+    }
+    $logMsg .= "\n";
     @file_put_contents(dirname(__DIR__) . '/storage/logs/admin_actions.log', $logMsg, FILE_APPEND);
     
     echo json_encode([
