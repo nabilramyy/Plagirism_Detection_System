@@ -1,6 +1,6 @@
 <?php
 /**
- * AJAX Endpoint - Edit User
+ * AJAX Endpoint - Edit User with Admin Key Support
  * Protected: Admin only
  */
 
@@ -43,6 +43,7 @@ $name = Validator::sanitize($_POST['name'] ?? '');
 $email = Validator::sanitize($_POST['email'] ?? '');
 $role = Validator::sanitize($_POST['role'] ?? '');
 $status = Validator::sanitize($_POST['status'] ?? '');
+$adminKey = isset($_POST['admin_key']) ? Validator::sanitize($_POST['admin_key']) : null;
 
 // Validation
 $errors = [];
@@ -69,13 +70,20 @@ if (!in_array($status, $allowedStatuses)) {
     $errors[] = 'Invalid status';
 }
 
+// Validate admin key if role is admin and key is provided
+if ($role === 'admin' && !empty($adminKey)) {
+    if (strlen($adminKey) < 6) {
+        $errors[] = 'Admin secret key must be at least 6 characters';
+    }
+}
+
 if (!empty($errors)) {
     echo json_encode(['success' => false, 'message' => implode(', ', $errors)]);
     exit;
 }
 
 // Check if user exists
-$checkStmt = $conn->prepare("SELECT name FROM users WHERE id = ?");
+$checkStmt = $conn->prepare("SELECT name, role FROM users WHERE id = ?");
 $checkStmt->bind_param("i", $userId);
 $checkStmt->execute();
 $result = $checkStmt->get_result();
@@ -84,7 +92,7 @@ if ($result->num_rows === 0) {
     echo json_encode(['success' => false, 'message' => 'User not found']);
     exit;
 }
-$oldName = $result->fetch_assoc()['name'];
+$oldData = $result->fetch_assoc();
 $checkStmt->close();
 
 // Check if email is taken by another user
@@ -110,15 +118,30 @@ if ($userId == $session->getUserId() && $status === 'banned') {
     exit;
 }
 
-// Update user
-$stmt = $conn->prepare("UPDATE users SET name = ?, email = ?, role = ?, status = ? WHERE id = ?");
-$stmt->bind_param("ssssi", $name, $email, $role, $status, $userId);
+// Update user - include admin key if role is admin and key is provided
+if ($role === 'admin' && !empty($adminKey)) {
+    $stmt = $conn->prepare("UPDATE users SET name = ?, email = ?, role = ?, status = ?, admin_key = ? WHERE id = ?");
+    $stmt->bind_param("sssssi", $name, $email, $role, $status, $adminKey, $userId);
+} else if ($role === 'admin' && empty($adminKey)) {
+    // Keep existing admin key
+    $stmt = $conn->prepare("UPDATE users SET name = ?, email = ?, role = ?, status = ? WHERE id = ?");
+    $stmt->bind_param("ssssi", $name, $email, $role, $status, $userId);
+} else {
+    // Not admin role - clear admin key if it exists
+    $nullKey = null;
+    $stmt = $conn->prepare("UPDATE users SET name = ?, email = ?, role = ?, status = ?, admin_key = ? WHERE id = ?");
+    $stmt->bind_param("sssssi", $name, $email, $role, $status, $nullKey, $userId);
+}
 
 if ($stmt->execute()) {
     $stmt->close();
     
     // Log action
-    $logMsg = "[" . date('Y-m-d H:i:s') . "] Admin {$session->getUserName()} updated user ID {$userId}: {$oldName} -> {$name}, role: {$role}, status: {$status}\n";
+    $logMsg = "[" . date('Y-m-d H:i:s') . "] Admin {$session->getUserName()} updated user ID {$userId}: {$oldData['name']} -> {$name}, role: {$role}, status: {$status}";
+    if ($role === 'admin' && !empty($adminKey)) {
+        $logMsg .= " (admin key updated)";
+    }
+    $logMsg .= "\n";
     @file_put_contents(dirname(__DIR__) . '/storage/logs/admin_actions.log', $logMsg, FILE_APPEND);
     
     echo json_encode([

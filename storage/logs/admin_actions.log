@@ -1,0 +1,8 @@
+[2025-12-15 11:03:14] Admin Admin added user: gamal (gamal@gmail.com) as admin with admin key
+[2025-12-15 11:03:32] Admin Admin updated user ID 7: gamal -> gamal, role: admin, status: active
+[2025-12-15 11:05:13] Admin gamal updated user ID 5: jana -> jana, role: instructor, status: banned
+[2025-12-15 11:07:49] Admin gamal updated user ID 5: jana -> jana, role: instructor, status: active
+[2025-12-15 11:09:13] Admin gamal updated user ID 5: jana -> jana, role: instructor, status: banned
+[2025-12-15 11:37:46] Admin gamal updated user ID 7: gamal -> gamal, role: admin, status: active
+[2025-12-15 11:38:14] Admin gamal updated user ID 4: diaa -> diaa, role: student, status: active
+[2025-12-15 11:38:34] Admin gamal updated user ID 1: Admin -> Admin, role: admin, status: active

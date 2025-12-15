@@ -2,6 +2,7 @@
 /**
  * Authentication Controller - Handles Login, Signup & Forgot Password
  * Updated with SessionManager and AuthMiddleware integration
+ * Added banned user check during login
  */
 
 require_once __DIR__ . '/../Models/User.php';
@@ -53,6 +54,12 @@ class AuthController {
         if (!$this->user->findByEmail($email)) {
             $this->auth->logAuthAttempt(false, $email, $ipAddress);
             $this->alertBack("No account found with this email.");
+        }
+        
+        // **NEW: Check if user is banned**
+        if ($this->user->getStatus() === 'banned') {
+            $this->auth->logAuthAttempt(false, $email, $ipAddress, 'banned');
+            $this->alertBack("Your account has been banned. Please contact the administrator for more information.");
         }
         
         // Admin key verification for admin users
