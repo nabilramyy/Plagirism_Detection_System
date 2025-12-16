@@ -1,9 +1,5 @@
 <?php
-/**
- * Universal Chat Fetch Handler
- * Works for both students and instructors
- * Location: /Views/instructor/chat_fetch.php
- */
+
 
 require_once __DIR__ . '/../../Helpers/SessionManager.php';
 require_once __DIR__ . '/../../Middleware/AuthMiddleware.php';
@@ -11,6 +7,7 @@ require_once __DIR__ . '/../../includes/db.php';
 
 use Helpers\SessionManager;
 use Middleware\AuthMiddleware;
+
 
 header('Content-Type: application/json');
 

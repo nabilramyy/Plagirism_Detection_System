@@ -51,9 +51,6 @@ class UserController {
      */
     public function getUsers($page = 1, $limit = 10, $search = '', $roleFilter = '') {
         $this->requireAdmin();
-        
-        // Log the access attempt
-        $this->logAccess('view_users', "Admin viewing users list - Page: {$page}, Search: '{$search}', Role: '{$roleFilter}'");
 
         $offset = ($page - 1) * $limit;
         
