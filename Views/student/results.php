@@ -33,7 +33,7 @@ if (!$submissionId) {
 $ctrl = new SubmissionController();
 
 // Fetch user's submissions
-$submissions = $ctrl->getUserSubmissions($userId);
+$submissions = $ctrl->getUserSubmissions($userId, 'visible');
 $submission = null;
 
 // Find the specific submission and verify ownership
@@ -63,7 +63,7 @@ $exact = $submission['exact_match'];
 $partial = $submission['partial_match'];
 
 // Optional: Highlight repeated words
-$existing = $ctrl->getUserSubmissions($userId, 'active');
+$existing = $ctrl->getUserSubmissions($userId, 'visible');
 $matchingWords = [];
 $words = preg_split('/\s+/', strtolower($submission['text_content']));
 $totalChunks = max(1, count($words) - 4);
@@ -71,7 +71,8 @@ $totalChunks = max(1, count($words) - 4);
 for ($i = 0; $i < $totalChunks; $i++) {
     $chunk = implode(' ', array_slice($words, $i, 5));
     foreach ($existing as $sub) {
-        if ($sub['id'] == $submissionId) continue; // skip self
+        if ($sub['id'] == $submissionId)
+            continue; // skip self
         if (stripos($sub['text_content'], $chunk) !== false) {
             $matchingWords[] = $chunk;
             break;
