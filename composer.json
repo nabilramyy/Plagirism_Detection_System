@@ -1,0 +1,19 @@
+{
+    "name": "habib/plagirism_detection_system",
+    "description": "Instructor_testing",
+    "autoload": {
+        "psr-4": {
+            "Habib\\PlagirismDetectionSystem\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "habiba-04",
+            "email": "habiba.ahmedmahmoud.15@gmail.com"
+        }
+    ],
+    "minimum-stability": "stable",
+    "require-dev": {
+        "phpunit/phpunit": "^11.5"
+    }
+}
