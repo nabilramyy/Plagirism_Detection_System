@@ -177,6 +177,7 @@ function redirectWithMessage(string $location, string $message, string $type = '
 // ============================================
 
 // Handle DELETE action
+// Handle DELETE action
 if (isset($_POST['delete_id'])) {
     $submissionId = intval($_POST['delete_id']);
     $activeSubmissions = $ctrl->getUserSubmissions($userId, 'active');
@@ -230,21 +231,53 @@ if (isset($_POST['restore_id'])) {
 // Handle SUBMISSION
 $submissionResult = null;
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['delete_id']) && !isset($_POST['restore_id'])) {
-    $_POST['user_id'] = $userId; // Force correct user ID
+    $_POST['user_id'] = $userId;
     $submissionResult = $ctrl->submit();
 }
 
-// ============================================
-// DATA FETCHING
-// ============================================
-$submissions = $ctrl->getUserSubmissions($userId, 'active');
+// Generate CSRF token for forms
+$csrfToken = Csrf::token();
+
+// Fetch submissions - only for authenticated user
+$submissions = $ctrl->getUserSubmissions($userId, 'visible');
 $deletedSubmissions = $ctrl->getUserSubmissions($userId, 'deleted');
-$instructors = fetchInstructors($conn);
-$notificationCount = countUnseenNotifications($submissions);
+
+// Fetch instructors from database using the controller's connection
+$instructors = [];
+try {
+    // Use reflection to access the controller's connection
+    $reflection = new ReflectionClass($ctrl);
+    $connProperty = $reflection->getProperty('conn');
+    $connProperty->setAccessible(true);
+    $conn = $connProperty->getValue($ctrl);
+
+    if ($conn && is_object($conn) && method_exists($conn, 'query')) {
+        $instructorQuery = $conn->query("SELECT id, name, email FROM users WHERE role='instructor' AND status='active' ORDER BY name ASC");
+        if ($instructorQuery && $instructorQuery->num_rows > 0) {
+            while ($row = $instructorQuery->fetch_assoc()) {
+                $instructors[] = $row;
+            }
+        }
+    }
+} catch (Exception $e) {
+    // Fallback: try direct database connection
+    $rootPath = dirname(dirname(__DIR__));
+    require_once $rootPath . '/includes/db.php';
+    if (isset($conn) && is_object($conn) && method_exists($conn, 'query')) {
+        $instructorQuery = $conn->query("SELECT id, name, email FROM users WHERE role='instructor' AND status='active' ORDER BY name ASC");
+        if ($instructorQuery && $instructorQuery->num_rows > 0) {
+            while ($row = $instructorQuery->fetch_assoc()) {
+                $instructors[] = $row;
+            }
+        }
+    }
+}
+
 
 ?>
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -253,6 +286,7 @@ $notificationCount = countUnseenNotifications($submissions);
 <link rel="stylesheet" href="../../assets/css/user.css">
 <link rel="stylesheet" href="../../assets/css/chatbot.css">
 </head>
+
 <body>
 
 <!-- Sidebar -->
@@ -267,11 +301,23 @@ $notificationCount = countUnseenNotifications($submissions);
         <a href="#" id="historyBtn" data-tooltip="Past History">📜</a>
         <a href="#" id="notificationsBtn" data-tooltip="Notifications" class="notification-link">
             🔔
-            <?php if ($notificationCount > 0): ?>
-                <span id="notificationBadge" class="notification-badge">
-                    <?= $notificationCount ?>
-                </span>
-            <?php endif; ?>
+            <?php
+                // Count only submissions with feedback from instructor
+                $notificationCount = 0;
+                foreach ($submissions as $sub) {
+                    $hasFeedback = !empty($sub['feedback']);
+                    $isAccepted = $sub['status'] === 'accepted';
+                    $isRejected = $sub['status'] === 'rejected';
+
+                    // Only count if instructor took action
+                    if ($hasFeedback || $isAccepted || $isRejected) {
+                        $notificationCount++;
+                    }
+                }
+                if ($notificationCount > 0): ?>
+                    <span class="notification-badge"
+                        style="background: #ef4444; color: white; border-radius: 50%; padding: 2px 6px; font-size: 10px; position: absolute; top: -5px; right: -5px; min-width: 18px; text-align: center; line-height: 14px; font-weight: bold;"><?= $notificationCount ?></span>
+                <?php endif; ?>
         </a>
         <a href="#" id="trashBtn" data-tooltip="Trash">🗑️</a>
         <a href="#" id="chatBtn" data-tooltip="Chat with Instructor">💬</a>
@@ -362,7 +408,8 @@ $notificationCount = countUnseenNotifications($submissions);
                 <?php endif; ?>
             </aside>
         </div>
-    </section>
+        <a href="<?= htmlspecialchars('../../logout.php', ENT_QUOTES) ?>" class="logout" data-tooltip="Logout">↻</a>
+    </nav>
 
     <!-- History Page -->
     <section id="historyPage" class="page">

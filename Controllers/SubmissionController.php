@@ -267,15 +267,15 @@ protected function checkPlagiarism(string $text): array
         $storageDir = $this->rootPath . '/storage/reports';
         if (!is_dir($storageDir)) mkdir($storageDir, 0755, true);
 
-        $filename = "report_{$id}_" . time() . ".html";
-        $path = $storageDir . '/' . $filename;
+    $filename = "report_{$id}_" . time() . ".html";
+    $path = $storageDir . '/' . $filename;
 
-        $highlightedText = $text;
-        foreach ($matchingWords as $word) {
-            $highlightedText = preg_replace('/\b(' . preg_quote($word, '/') . ')\b/i', '<mark>$1</mark>', $highlightedText);
-        }
+    $highlightedText = $text;
+    foreach ($matchingWords as $word) {
+        $highlightedText = preg_replace('/\b(' . preg_quote($word, '/') . ')\b/i', '<mark>$1</mark>', $highlightedText);
+    }
 
-        $content = "<!DOCTYPE html>
+    $content = "<!DOCTYPE html>
 <html lang='en'>
 <head>
 <meta charset='UTF-8'>

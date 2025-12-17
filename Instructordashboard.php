@@ -52,13 +52,8 @@ if (!$instructor) {
 // Fetch dashboard data
 $stats = $controller->getStats($instructor_id);
 $enrolled_students = $controller->getEnrolledStudents($instructor_id);
-$stats = [
-    'students_enrolled' => count($enrolled_students)
-];
-
-
-$submissions = $controller->getSubmissions($instructor_id);
-$trash = $controller->getTrash($instructor_id);
+ $submissions = $controller->getSubmissions($instructor_id);
+ $trash = $controller->getTrash($instructor_id);
 
 // Generate CSRF token for forms
 require_once __DIR__ . '/Helpers/Csrf.php';

@@ -9,5 +9,5 @@ spl_autoload_register(function ($class) {
     }
 });
 
-date_default_timezone_set('UTC');
+  date_default_timezone_set('UTC');
 
