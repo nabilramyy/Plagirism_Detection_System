@@ -246,11 +246,12 @@ $notificationCount = countUnseenNotifications($submissions);
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Plagiarism Detection - Student Dashboard</title>
-    <link rel="stylesheet" href="../../assets/css/student.css">
-    <link rel="stylesheet" href="../../assets/css/user.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Plagiarism Detection - Student Dashboard</title>
+<link rel="stylesheet" href="../../assets/css/student.css">
+<link rel="stylesheet" href="../../assets/css/user.css">
+<link rel="stylesheet" href="../../assets/css/chatbot.css">
 </head>
 <body>
 
@@ -745,5 +746,8 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
-</body>
+<!-- Chatbot Widget -->
+<script src="../../assets/js/chatbot.js"></script>
+
+</body> 
 </html>
