@@ -21,7 +21,7 @@ require_once __DIR__ . '/../../Controllers/SubmissionController.php';
 require_once __DIR__ . '/../../Controllers/StudentController.php';
 // Ensure global database connection
 if (!isset($conn)) {
-    require __DIR__ . '/../../includes/db.php';
+    require __DIR__ . '/../../../includes/db.php';
 }
 if (!isset($conn)) {
     die("Database connection failed in student dashboard.");
