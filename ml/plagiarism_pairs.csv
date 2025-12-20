@@ -1,0 +1,21 @@
+text_a,text_b,label
+"this is a plagiarized sentence example","this is a plagiarized sentence example",1
+"this is a plagiarized sentence example","this is a totally different unique sentence",0
+"database systems manage data efficiently","database systems manage data efficiently",1
+"database systems manage data efficiently","football is a popular sport worldwide",0
+"machine learning helps detect patterns","machine learning helps detect patterns in data",1
+"machine learning helps detect patterns","students submit assignments through an online portal",0
+"normalization reduces data redundancy in databases","normalization reduces redundancy in database tables",1
+"normalization reduces data redundancy in databases","php is a server side scripting language",0
+"plagiarism detection compares student submissions","plagiarism detection compares multiple student answers",1
+"plagiarism detection compares student submissions","the weather in cairo is usually warm and sunny",0
+"students must write original code for assignments","students must create their own solutions for homework",1
+"students must write original code for assignments","cars and buses are common transportation methods",0
+"support vector machines are used for classification","support vector machines can classify text documents",1
+"support vector machines are used for classification","water boils at one hundred degrees celsius",0
+"tf idf represents text as numerical vectors","tf idf represents documents using word importance",1
+"tf idf represents text as numerical vectors","cats and dogs are popular pets",0
+"php code runs on the server","php scripts are executed on the server side",1
+"php code runs on the server","basketball is played on a rectangular court",0
+"students should avoid copy paste from the internet","students must avoid copying and pasting from websites",1
+"students should avoid copy paste from the internet","trees produce oxygen and provide shade",0

@@ -7,21 +7,24 @@ require_once __DIR__ . '/../app/Services/PlagiarismService.php';
 class PlagiarismServiceTest extends TestCase
 {
     public function testDetectsPlagiarism()
-    {
-        $service = new PlagiarismService();
+{
+    $service = new PlagiarismService();
 
-        $existing = [
-            ['text_content' => 'this is a plagiarized sentence example']
-        ];
+    $existing = [
+        ['text_content' => 'this is a plagiarized sentence example']
+    ];
 
-        $result = $service->check(
-            'this is a plagiarized sentence example',
-            $existing
-        );
+    $result = $service->check(
+        'this is a plagiarized sentence example',
+        $existing
+    );
 
-        $this->assertGreaterThan(0, $result['plagiarised']);
-        $this->assertNotEmpty($result['matchingWords']);
-    }
+    var_dump($result); // <--- add this line
+
+    $this->assertGreaterThan(0, $result['plagiarised']);
+    $this->assertNotEmpty($result['matchingWords']);
+}
+
 
     public function testNoPlagiarism()
     {

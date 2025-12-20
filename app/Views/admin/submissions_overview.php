@@ -26,6 +26,7 @@ use Controllers\AdminSubmissionController;
 $session = SessionManager::getInstance();
 $auth    = new AuthMiddleware();
 
+
 if (!$session->isLoggedIn() || $session->getUserRole() !== 'admin') {
     header('Location: ' . BASE_URL . '/signup.php');
     exit();
@@ -87,13 +88,200 @@ function getCourseById($conn, $id) {
 $csrfToken = \Helpers\Csrf::token();
 ?>
 <section class="submissions-overview">
-  <!-- your existing HTML table / stats / filters markup here -->
+  <h2>Submissions Overview 📄</h2>
+
+  <!-- Statistics Cards -->
+  <div class="stats-cards">
+    <div class="stat-card">
+      <div class="icon-wrap"><i class="fas fa-file-alt"></i></div>
+      <div class="stat-body">
+        <div class="stat-number"><?= htmlspecialchars($stats['total'] ?? 0, ENT_QUOTES, 'UTF-8') ?></div>
+        <div class="stat-label">Total Submissions</div>
+      </div>
+    </div>
+
+    <div class="stat-card">
+      <div class="icon-wrap"><i class="fas fa-chart-line"></i></div>
+      <div class="stat-body">
+        <div class="stat-number"><?= htmlspecialchars($stats['avg_similarity'] ?? 0, ENT_QUOTES, 'UTF-8') ?>%</div>
+        <div class="stat-label">Average Similarity</div>
+      </div>
+    </div>
+
+    <div class="stat-card">
+      <div class="icon-wrap"><i class="fas fa-exclamation-triangle"></i></div>
+      <div class="stat-body">
+        <div class="stat-number"><?= htmlspecialchars($stats['high_risk'] ?? 0, ENT_QUOTES, 'UTF-8') ?></div>
+        <div class="stat-label">High-Risk (>70%)</div>
+      </div>
+    </div>
+
+    <div class="stat-card">
+      <div class="icon-wrap"><i class="fas fa-calendar"></i></div>
+      <div class="stat-body">
+        <div class="stat-number"><?= date('M j') ?></div>
+        <div class="stat-label">Today's Date</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Search and Filter Form -->
+  <form method="GET" action="admin.php" class="search-filter-bar">
+    <input type="hidden" name="page" value="submissions_overview">
+    
+    <input type="text" 
+           name="search" 
+           class="search-bar" 
+           placeholder="🔍 Search by student name or title..." 
+           value="<?= htmlspecialchars($filters['search'], ENT_QUOTES, 'UTF-8') ?>">
+    
+    <select name="status" class="filter-select">
+      <option value="">All Status</option>
+      <option value="completed" <?= $filters['status'] === 'completed' ? 'selected' : '' ?>>Completed</option>
+      <option value="processing" <?= $filters['status'] === 'processing' ? 'selected' : '' ?>>Processing</option>
+      <option value="uploaded" <?= $filters['status'] === 'uploaded' ? 'selected' : '' ?>>Uploaded</option>
+      <option value="failed" <?= $filters['status'] === 'failed' ? 'selected' : '' ?>>Failed</option>
+    </select>
+
+    <select name="risk" class="filter-select">
+      <option value="">All Risk Levels</option>
+      <option value="low" <?= $filters['risk'] === 'low' ? 'selected' : '' ?>>Low (0-30%)</option>
+      <option value="medium" <?= $filters['risk'] === 'medium' ? 'selected' : '' ?>>Medium (31-70%)</option>
+      <option value="high" <?= $filters['risk'] === 'high' ? 'selected' : '' ?>>High (>70%)</option>
+    </select>
+
+    <button type="submit" class="btn primary">
+      <i class="fas fa-search"></i> Filter
+    </button>
+
+    <a href="admin.php?page=submissions_overview&export=csv" class="btn primary">
+      <i class="fas fa-download"></i> Export CSV
+    </a>
+  </form>
+
+  <!-- Submissions Table -->
+  <div class="submissions-table-container">
+    <table class="submissions-table" id="submissionsTable">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Student Name</th>
+          <th>Document Title</th>
+          <th>Course</th>
+          <th>Instructor</th>
+          <th>Submission Date</th>
+          <th>Similarity Score</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <?php if (empty($submissions)): ?>
+          <tr>
+            <td colspan="9" style="text-align:center;color:#a7b7d6;padding:20px;">
+              No submissions found.
+            </td>
+          </tr>
+        <?php else: ?>
+          <?php foreach ($submissions as $sub): ?>
+            <?php
+              // Determine risk class
+              $scoreClass = 'processing';
+              $similarity = $sub['similarity'] ?? null;
+              if ($similarity !== null) {
+                  if ($similarity <= 30) $scoreClass = 'low';
+                  elseif ($similarity <= 70) $scoreClass = 'medium';
+                  else $scoreClass = 'high';
+              }
+              
+              // Format date safely
+              $createdAt = $sub['created_at'] ?? '';
+              $formattedDate = '';
+              if ($createdAt) {
+                  try {
+                      $formattedDate = date('M j, Y g:i A', strtotime($createdAt));
+                  } catch (Exception $e) {
+                      $formattedDate = 'Invalid date';
+                  }
+              }
+            ?>
+            <tr>
+              <td><strong>#<?= htmlspecialchars($sub['id'] ?? '', ENT_QUOTES, 'UTF-8') ?></strong></td>
+              <td><?= htmlspecialchars($sub['student_name'] ?? 'Unknown', ENT_QUOTES, 'UTF-8') ?></td>
+              <td><?= htmlspecialchars($sub['title'] ?? $sub['stored_name'] ?? 'Untitled', ENT_QUOTES, 'UTF-8') ?></td>
+              <td>
+                <span class="badge">
+                  <?= htmlspecialchars($sub['course_id'] ?? 'N/A', ENT_QUOTES, 'UTF-8') ?>
+                </span>
+              </td>
+              <td>
+                <small><?= htmlspecialchars($sub['instructor_name'] ?? $sub['teacher'] ?? 'None', ENT_QUOTES, 'UTF-8') ?></small>
+              </td>
+              <td>
+                <small><?= htmlspecialchars($formattedDate, ENT_QUOTES, 'UTF-8') ?></small>
+              </td>
+              <td>
+                <span class="similarity-score <?= htmlspecialchars($scoreClass, ENT_QUOTES, 'UTF-8') ?>">
+                  <?= $similarity !== null ? htmlspecialchars($similarity, ENT_QUOTES, 'UTF-8') . '%' : '—' ?>
+                </span>
+              </td>
+              <td>
+                <span class="status-badge <?= htmlspecialchars($sub['status'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+                  <?= ucfirst(htmlspecialchars($sub['status'] ?? 'unknown', ENT_QUOTES, 'UTF-8')) ?>
+                </span>
+              </td>
+              <td>
+                <button class="btn small" onclick="viewSubmissionDetails(<?= (int)($sub['id'] ?? 0) ?>)">
+                  🔍 View
+                </button>
+                <button class="btn small danger" onclick="deleteSubmission(<?= (int)($sub['id'] ?? 0) ?>)">
+                  🗑️
+                </button>
+              </td>
+            </tr>
+          <?php endforeach; ?>
+        <?php endif; ?>
+      </tbody>
+    </table>
+  </div>
 
   <!-- CSRF token for AJAX requests -->
   <input type="hidden" id="csrfToken" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
 </section>
 
-<!-- Side Panel, Overlay, Modal HTML remains as you already wrote it -->
+<!-- Side Panel for Submission Details -->
+<div id="submissionPanel" class="side-panel">
+  <div class="side-panel-content">
+    <div class="side-panel-header">
+      <h3><i class="fas fa-file-alt"></i> Submission Details</h3>
+      <button class="close-panel-btn" onclick="closeSubmissionPanel()">&times;</button>
+    </div>
+    <div class="side-panel-body" id="submissionPanelBody">
+      <p>Loading...</p>
+    </div>
+  </div>
+</div>
+
+<!-- Panel Overlay -->
+<div id="panelOverlay" class="panel-overlay" onclick="closeAllPanels()"></div>
+
+<!-- Delete Confirmation Modal -->
+<div id="deleteConfirmModal" class="modal" style="display:none;">
+  <div class="modal-content small">
+    <div class="modal-header">
+      <h3>🗑️ Delete Submission</h3>
+      <button class="close-btn" onclick="this.closest('.modal').style.display='none'">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p>Are you sure you want to delete this submission? This action cannot be undone.</p>
+    </div>
+    <div class="modal-footer">
+      <input type="hidden" id="deleteConfirmId" value="">
+      <button class="btn" onclick="this.closest('.modal').style.display='none'">Cancel</button>
+      <button class="btn danger" onclick="confirmDeleteSubmission()">Yes, Delete</button>
+    </div>
+  </div>
+</div>
 
 <script>
 (function() {

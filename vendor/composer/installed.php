@@ -1,9 +1,9 @@
 <?php return array(
     'root' => array(
         'name' => '__root__',
-        'pretty_version' => 'dev-master',
-        'version' => 'dev-master',
-        'reference' => 'fcbc582052818079b1a8baf6c713e064648dd405',
+        'pretty_version' => 'dev-main',
+        'version' => 'dev-main',
+        'reference' => 'aab3c9baaa36a5a907f426bb58489e1bbad15e74',
         'type' => 'library',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
@@ -11,9 +11,9 @@
     ),
     'versions' => array(
         '__root__' => array(
-            'pretty_version' => 'dev-master',
-            'version' => 'dev-master',
-            'reference' => 'fcbc582052818079b1a8baf6c713e064648dd405',
+            'pretty_version' => 'dev-main',
+            'version' => 'dev-main',
+            'reference' => 'aab3c9baaa36a5a907f426bb58489e1bbad15e74',
             'type' => 'library',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),
@@ -110,9 +110,9 @@
             'dev_requirement' => true,
         ),
         'phpunit/phpunit' => array(
-            'pretty_version' => '9.6.0',
-            'version' => '9.6.0.0',
-            'reference' => '70fc8be1d0b9fad56a199a4df5f9cfabfc246f84',
+            'pretty_version' => '9.6.31',
+            'version' => '9.6.31.0',
+            'reference' => '945d0b7f346a084ce5549e95289962972c4272e5',
             'type' => 'library',
             'install_path' => __DIR__ . '/../phpunit/phpunit',
             'aliases' => array(),

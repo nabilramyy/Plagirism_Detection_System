@@ -152,11 +152,12 @@ class Submission
     /**
      * Get all active submissions text for plagiarism comparison
      */
-    public function getAllSubmissions(): array
-    {
-        $res = $this->conn->query("SELECT text_content FROM submissions WHERE status = 'active'");
-        return $res ? $res->fetch_all(MYSQLI_ASSOC) : [];
-    }
+   public function getAllSubmissions(): array
+{
+    $res = $this->conn->query("SELECT id, text_content FROM submissions WHERE status = 'active'");
+    return $res ? $res->fetch_all(MYSQLI_ASSOC) : [];
+}
+
 
     /**
      * Get ALL submissions (for admin)
