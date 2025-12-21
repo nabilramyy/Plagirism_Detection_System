@@ -147,6 +147,82 @@ class User
     }
 
     /**
+     * Find user by Google ID
+     */
+    public function findByGoogleId($googleId): bool
+    {
+        $stmt = $this->db->prepare("SELECT * FROM users WHERE google_id = ?");
+        if (!$stmt) {
+            error_log("Prepare failed: " . $this->db->error);
+            return false;
+        }
+
+        $stmt->bind_param("s", $googleId);
+        $stmt->execute();
+        $result = $stmt->get_result();
+
+        if ($result && $result->num_rows > 0) {
+            $row           = $result->fetch_assoc();
+            $this->id      = $row['id'];
+            $this->name    = $row['name'];
+            $this->email   = $row['email'];
+            $this->password = $row['password'] ?? '';
+            $this->role    = $row['role'];
+            $this->status  = $row['status'] ?? 'active';
+            $this->admin_key = $row['admin_key'] ?? null;
+            $stmt->close();
+            return true;
+        }
+
+        $stmt->close();
+        return false;
+    }
+
+    /**
+     * Create user from Google account
+     */
+    public function createFromGoogle($googleId, $name, $email, $role = 'student'): bool
+    {
+        $defaultStatus = 'active';
+        
+        // Generate a random password (users won't need it for Google login)
+        $randomPassword = bin2hex(random_bytes(16));
+        $hashedPassword = password_hash($randomPassword, PASSWORD_DEFAULT);
+
+        $stmt = $this->db->prepare(
+            "INSERT INTO users (name, email, password, role, status, google_id)
+             VALUES (?, ?, ?, ?, ?, ?)"
+        );
+        if (!$stmt) {
+            error_log("Prepare failed: " . $this->db->error);
+            return false;
+        }
+
+        $stmt->bind_param(
+            "ssssss",
+            $name,
+            $email,
+            $hashedPassword,
+            $role,
+            $defaultStatus,
+            $googleId
+        );
+
+        $success = $stmt->execute();
+        if ($success) {
+            $this->id = $stmt->insert_id;
+            $this->name = $name;
+            $this->email = $email;
+            $this->role = $role;
+            $this->status = $defaultStatus;
+        } else {
+            error_log("Execute failed: " . $stmt->error);
+        }
+        $stmt->close();
+        return $success;
+    }
+
+    /**
      * Check if user is banned
      */
     public function isBanned(): bool
