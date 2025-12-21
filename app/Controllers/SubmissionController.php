@@ -24,9 +24,11 @@ class SubmissionController {
     $this->rootPath = dirname(__DIR__);
 
     if ($conn === null) {
-         require_once $this->rootPath . '/../includes/db.php';
-
-
+        require_once $this->rootPath . '/../includes/db.php';
+        global $conn;
+        if (!$conn || $conn->connect_error) {
+            die('DB connection failed: ' . ($conn ? $conn->connect_error : 'no connection'));
+        }
         $this->conn = $conn;
     } else {
         $this->conn = $conn;
