@@ -107,7 +107,10 @@ abstract class DatabaseTestCase extends TestCase
             CREATE TABLE courses (
               id INT(11) NOT NULL AUTO_INCREMENT,
               name VARCHAR(255) NOT NULL,
+              description TEXT NULL,
               instructor_id INT(11) NOT NULL,
+              created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+              updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
               PRIMARY KEY (id),
               KEY fk_course_instructor (instructor_id),
               CONSTRAINT fk_course_instructor FOREIGN KEY (instructor_id) REFERENCES users (id)
