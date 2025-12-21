@@ -1,33 +1,55 @@
-
 let userChart, similarityChart, courseChart;
 
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
   updateDashboardStats();
   createCharts();
   loadRecentSubmissions();
 });
 
+// -------------------------
+// 1. Top statistics cards
+// -------------------------
 function updateDashboardStats() {
+  // Prefer server-provided stats if available
+  if (window.dashboardStats) {
+    const stats = window.dashboardStats;
+
+    document.getElementById('totalUsers').textContent =
+      stats.totalUsers ?? 0;
+    document.getElementById('totalCourses').textContent =
+      stats.totalCourses ?? 0;
+    document.getElementById('totalSubmissions').textContent =
+      stats.totalSubmissions ?? 0;
+    document.getElementById('highRiskCount').textContent =
+      stats.highRiskCount ?? 0;
+
+    return;
+  }
+
+  // Fallback: localStorage (old behavior)
   try {
     const usersData = JSON.parse(localStorage.getItem('users') || '{"users":[]}');
     const coursesData = JSON.parse(localStorage.getItem('courses') || '{"courses":[]}');
     const submissionsData = JSON.parse(localStorage.getItem('submissions') || '{"submissions":[]}');
-    
+
     const users = usersData.users || [];
     const courses = coursesData.courses || [];
     const submissions = submissionsData.submissions || [];
-    
+
     document.getElementById('totalUsers').textContent = users.length;
     document.getElementById('totalCourses').textContent = courses.length;
     document.getElementById('totalSubmissions').textContent = submissions.length;
-    
+
     const highRisk = submissions.filter(s => s.similarity && s.similarity > 70).length;
     document.getElementById('highRiskCount').textContent = highRisk;
-  } catch(e) {
-    console.log('Using default values');
+  } catch (e) {
+    console.log('Using default values for dashboard stats');
   }
 }
 
+// -------------------------
+// 2. Charts
+// -------------------------
 function createCharts() {
   createUserPieChart();
   createSimilarityChart();
@@ -36,17 +58,31 @@ function createCharts() {
 
 function createUserPieChart() {
   const ctx = document.getElementById('userPieChart');
-  
+  if (!ctx) return;
+
+  let students = 0, instructors = 0, admins = 0;
+
+  if (window.dashboardStats && window.dashboardStats.userDistribution) {
+    const dist = window.dashboardStats.userDistribution;
+    students   = dist.student   ?? dist.students   ?? 0;
+    instructors= dist.instructor?? dist.instructors?? 0;
+    admins     = dist.admin     ?? dist.admins     ?? 0;
+  } else {
+    // Fallback: localStorage
+    try {
+      const usersData = JSON.parse(localStorage.getItem('users') || '{"users":[]}');
+      const users = usersData.users || [];
+      students   = users.filter(u => u.role === 'student').length;
+      instructors= users.filter(u => u.role === 'instructor').length;
+      admins     = users.filter(u => u.role === 'admin').length;
+    } catch (e) {
+      console.error('Error reading users from localStorage', e);
+    }
+  }
+
   try {
-    const usersData = JSON.parse(localStorage.getItem('users') || '{"users":[]}');
-    const users = usersData.users || [];
-    
-    const students = users.filter(u => u.role === 'student').length;
-    const instructors = users.filter(u => u.role === 'instructor').length;
-    const admins = users.filter(u => u.role === 'admin').length;
-    
     if (userChart) userChart.destroy();
-    
+
     userChart = new Chart(ctx, {
       type: 'pie',
       data: {
@@ -70,17 +106,15 @@ function createUserPieChart() {
         responsive: true,
         maintainAspectRatio: true,
         plugins: {
-          legend: {
-            display: false
-          },
+          legend: { display: false },
           tooltip: {
             backgroundColor: 'rgba(0, 0, 0, 0.8)',
             padding: 12,
             titleColor: '#fff',
             bodyColor: '#fff',
             callbacks: {
-              label: function(context) {
-                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+              label: function (context) {
+                const total = context.dataset.data.reduce((a, b) => a + b, 0) || 1;
                 const percentage = ((context.parsed / total) * 100).toFixed(1);
                 return context.label + ': ' + context.parsed + ' (' + percentage + '%)';
               }
@@ -89,8 +123,7 @@ function createUserPieChart() {
         }
       }
     });
-    
-    // Create legend
+
     document.getElementById('userLegend').innerHTML = `
       <div class="legend-item">
         <div class="legend-color" style="background: rgba(0, 198, 255, 0.8);"></div>
@@ -105,30 +138,43 @@ function createUserPieChart() {
         <span>Admins (${admins})</span>
       </div>
     `;
-  } catch(e) {
+  } catch (e) {
     console.error('Error creating user chart:', e);
   }
 }
 
 function createSimilarityChart() {
   const ctx = document.getElementById('similarityChart');
-  
+  if (!ctx) return;
+
+  let low = 0, medium = 0, high = 0;
+
+  if (window.dashboardStats && window.dashboardStats.similarityDistribution) {
+    const dist = window.dashboardStats.similarityDistribution;
+    low    = dist['Low (0-30%)']      ?? 0;
+    medium = dist['Medium (31-70%)']  ?? 0;
+    high   = dist['High (71-100%)']   ?? 0;
+  } else {
+    // Fallback: localStorage
+    try {
+      const submissionsData = JSON.parse(localStorage.getItem('submissions') || '{"submissions":[]}');
+      const submissions = submissionsData.submissions || [];
+      const completed = submissions.filter(s => s.status === 'completed' && s.similarity !== null);
+      low    = completed.filter(s => s.similarity <= 30).length;
+      medium = completed.filter(s => s.similarity > 30 && s.similarity <= 70).length;
+      high   = completed.filter(s => s.similarity > 70).length;
+    } catch (e) {
+      console.error('Error reading submissions from localStorage', e);
+    }
+  }
+
   try {
-    const submissionsData = JSON.parse(localStorage.getItem('submissions') || '{"submissions":[]}');
-    const submissions = submissionsData.submissions || [];
-    
-    const completed = submissions.filter(s => s.status === 'completed' && s.similarity !== null);
-    
-    const low = completed.filter(s => s.similarity <= 30).length;
-    const medium = completed.filter(s => s.similarity > 30 && s.similarity <= 70).length;
-    const high = completed.filter(s => s.similarity > 70).length;
-    
     if (similarityChart) similarityChart.destroy();
-    
+
     similarityChart = new Chart(ctx, {
       type: 'doughnut',
       data: {
-        labels: ['Low (0-30%)', 'Medium (31-70%)', 'High (>70%)'],
+        labels: ['Low (0-30%)', 'Medium (31-70%)', 'High (71-100%)'],
         datasets: [{
           data: [low, medium, high],
           backgroundColor: [
@@ -148,9 +194,7 @@ function createSimilarityChart() {
         responsive: true,
         maintainAspectRatio: true,
         plugins: {
-          legend: {
-            display: false
-          },
+          legend: { display: false },
           tooltip: {
             backgroundColor: 'rgba(0, 0, 0, 0.8)',
             padding: 12,
@@ -161,8 +205,7 @@ function createSimilarityChart() {
         cutout: '60%'
       }
     });
-    
-    // Create legend
+
     document.getElementById('similarityLegend').innerHTML = `
       <div class="legend-item">
         <div class="legend-color" style="background: rgba(126, 243, 182, 0.8);"></div>
@@ -177,35 +220,50 @@ function createSimilarityChart() {
         <span>High Risk (${high})</span>
       </div>
     `;
-  } catch(e) {
+  } catch (e) {
     console.error('Error creating similarity chart:', e);
   }
 }
 
 function createCourseBarChart() {
   const ctx = document.getElementById('courseBarChart');
-  
+  if (!ctx) return;
+
+  let labels = [];
+  let counts = [];
+
+  if (window.dashboardStats && window.dashboardStats.courseActivity) {
+    const activity = window.dashboardStats.courseActivity;
+    labels = activity.map(a => a.name);
+    counts = activity.map(a => a.count);
+  } else {
+    // Fallback: localStorage
+    try {
+      const submissionsData = JSON.parse(localStorage.getItem('submissions') || '{"submissions":[]}');
+      const coursesData = JSON.parse(localStorage.getItem('courses') || '{"courses":[]}');
+
+      const submissions = submissionsData.submissions || [];
+      const courses = coursesData.courses || [];
+
+      labels = courses.map(c => c.code);
+      counts = courses.map(course =>
+        submissions.filter(s => s.courseId === course.id).length
+      );
+    } catch (e) {
+      console.error('Error reading course data from localStorage', e);
+    }
+  }
+
   try {
-    const submissionsData = JSON.parse(localStorage.getItem('submissions') || '{"submissions":[]}');
-    const coursesData = JSON.parse(localStorage.getItem('courses') || '{"courses":[]}');
-    
-    const submissions = submissionsData.submissions || [];
-    const courses = coursesData.courses || [];
-    
-    const courseLabels = courses.map(c => c.code);
-    const courseCounts = courses.map(course => {
-      return submissions.filter(s => s.courseId === course.id).length;
-    });
-    
     if (courseChart) courseChart.destroy();
-    
+
     courseChart = new Chart(ctx, {
       type: 'bar',
       data: {
-        labels: courseLabels,
+        labels: labels,
         datasets: [{
           label: 'Submissions',
-          data: courseCounts,
+          data: counts,
           backgroundColor: 'rgba(0, 198, 255, 0.7)',
           borderColor: 'rgba(0, 198, 255, 1)',
           borderWidth: 2,
@@ -236,9 +294,7 @@ function createCourseBarChart() {
           }
         },
         plugins: {
-          legend: {
-            display: false
-          },
+          legend: { display: false },
           tooltip: {
             backgroundColor: 'rgba(0, 0, 0, 0.8)',
             padding: 12,
@@ -248,38 +304,80 @@ function createCourseBarChart() {
         }
       }
     });
-  } catch(e) {
+  } catch (e) {
     console.error('Error creating course chart:', e);
   }
 }
 
+// -------------------------
+// 3. Recent submissions
+// -------------------------
 function loadRecentSubmissions() {
   const container = document.getElementById('recentSubmissions');
-  
-  try {
-    const submissionsData = JSON.parse(localStorage.getItem('submissions') || '{"submissions":[]}');
-    const usersData = JSON.parse(localStorage.getItem('users') || '{"users":[]}');
-    const coursesData = JSON.parse(localStorage.getItem('courses') || '{"courses":[]}');
-    
-    const submissions = submissionsData.submissions || [];
-    const users = usersData.users || [];
-    const courses = coursesData.courses || [];
-    
-    if (submissions.length === 0) {
-      container.innerHTML = '<div class="empty-state"><i class="fas fa-inbox"></i><p>No submissions yet</p></div>';
+  if (!container) return;
+
+  // Prefer backend stats if provided
+  if (window.dashboardStats && Array.isArray(window.dashboardStats.recentSubmissions)) {
+    const recent = window.dashboardStats.recentSubmissions;
+    if (recent.length === 0) {
+      container.innerHTML =
+        '<div class="empty-state"><i class="fas fa-inbox"></i><p>No submissions yet</p></div>';
       return;
     }
-    
+
+    container.innerHTML = recent.map(sub => {
+      const scoreClass =
+        sub.similarity === null      ? 'processing' :
+        sub.similarity <= 30         ? 'low' :
+        sub.similarity <= 70         ? 'medium' : 'high';
+
+      return `
+        <div class="submission-item">
+          <div class="submission-info">
+            <div class="submission-title">Submission #${sub.id}</div>
+            <div class="submission-meta">
+              <span class="meta-item"><i class="fas fa-user"></i> ${sub.student_name || 'Unknown'}</span>
+              <span class="meta-item"><i class="fas fa-book"></i> ${sub.course_name || 'General Submission'}</span>
+              <span class="meta-item"><i class="fas fa-calendar"></i> ${new Date(sub.created_at).toLocaleDateString()}</span>
+            </div>
+          </div>
+          <span class="similarity-score ${scoreClass}">
+            ${sub.similarity !== null ? sub.similarity + '%' : '⏳ Processing'}
+          </span>
+        </div>
+      `;
+    }).join('');
+
+    return;
+  }
+
+  // Fallback: localStorage implementation
+  try {
+    const submissionsData = JSON.parse(localStorage.getItem('submissions') || '{"submissions":[]}');
+    const usersData       = JSON.parse(localStorage.getItem('users') || '{"users":[]}');
+    const coursesData     = JSON.parse(localStorage.getItem('courses') || '{"courses":[]}');
+
+    const submissions = submissionsData.submissions || [];
+    const users       = usersData.users || [];
+    const courses     = coursesData.courses || [];
+
+    if (submissions.length === 0) {
+      container.innerHTML =
+        '<div class="empty-state"><i class="fas fa-inbox"></i><p>No submissions yet</p></div>';
+      return;
+    }
+
     const recent = submissions.slice(-5).reverse();
-    
+
     container.innerHTML = recent.map(sub => {
       const student = users.find(u => u.id === sub.studentId);
-      const course = courses.find(c => c.id === sub.courseId);
-      
-      const scoreClass = sub.similarity === null ? 'processing' 
-        : sub.similarity <= 30 ? 'low'
-        : sub.similarity <= 70 ? 'medium' : 'high';
-      
+      const course  = courses.find(c => c.id === sub.courseId);
+
+      const scoreClass =
+        sub.similarity === null      ? 'processing' :
+        sub.similarity <= 30         ? 'low' :
+        sub.similarity <= 70         ? 'medium' : 'high';
+
       return `
         <div class="submission-item">
           <div class="submission-info">
@@ -296,13 +394,14 @@ function loadRecentSubmissions() {
         </div>
       `;
     }).join('');
-  } catch(e) {
-    container.innerHTML = '<div class="empty-state"><p>No data available</p></div>';
+  } catch (e) {
+    container.innerHTML =
+      '<div class="empty-state"><p>No data available</p></div>';
   }
 }
 
 // Refresh dashboard when window regains focus
-window.addEventListener('focus', function() {
+window.addEventListener('focus', function () {
   updateDashboardStats();
   createCharts();
   loadRecentSubmissions();

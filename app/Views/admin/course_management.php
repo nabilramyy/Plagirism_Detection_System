@@ -1,4 +1,3 @@
-
 <?php
 /**
  * Protected Admin Course Management View
@@ -12,19 +11,21 @@ if (!defined('ADMIN_ACCESS')) {
 
 // Additional authentication verification
 require_once dirname(__DIR__, 2) . '/Helpers/SessionManager.php';
-require_once __DIR__ . '/../../Middleware/AuthMiddleware.php';
+require_once dirname(__DIR__, 2) . '/Middleware/AuthMiddleware.php';
 require_once dirname(__DIR__, 2) . '/Helpers/Csrf.php';
 
 use Helpers\SessionManager;
 use Middleware\AuthMiddleware;
 use Helpers\Csrf;
 
+
+
 $session = SessionManager::getInstance();
-$auth = new AuthMiddleware();
+$auth    = new AuthMiddleware();
 
 // Double-check authentication
 if (!$session->isLoggedIn() || $session->getUserRole() !== 'admin') {
-    header("Location: /Plagirism_Detection_System/signup.php");
+    header('Location: /Plagirism_Detection_System/signup.php');
     exit();
 }
 ?>
@@ -36,34 +37,38 @@ if (!$session->isLoggedIn() || $session->getUserRole() !== 'admin') {
       <i class="fas fa-plus"></i> Create New Course
     </button>
   </div>
-  
+
   <div id="courseNotification" class="notice" style="display:none;"></div>
-  
+
   <!-- Add New Course Form -->
   <div class="add-user-form" id="addCourseFormContainer" style="display:none;">
     <h3><i class="fas fa-book"></i> Create New Course</h3>
     <form id="addCourseForm" class="add-form" onsubmit="addCourse(event)">
       <input type="hidden" id="addCourseCsrf" name="_csrf" value="<?= \Helpers\Csrf::token() ?>">
-      
+
       <div class="form-group">
         <label for="newCourseName">Course Name *</label>
-        <input type="text" id="newCourseName" name="name" class="form-input" placeholder="Enter course name" required minlength="3">
+        <input type="text" id="newCourseName" name="name" class="form-input"
+               placeholder="Enter course name" required minlength="3">
       </div>
-      
+
       <div class="form-group">
         <label for="newCourseDescription">Description</label>
-        <textarea id="newCourseDescription" name="description" class="form-input" placeholder="Enter course description (optional)" rows="3"></textarea>
+        <textarea id="newCourseDescription" name="description" class="form-input"
+                  placeholder="Enter course description (optional)" rows="3"></textarea>
       </div>
-      
+
       <div class="form-group">
         <label for="newInstructorId">Instructor *</label>
         <select id="newInstructorId" name="instructor_id" class="form-input" required>
           <option value="">Select Instructor</option>
           <!-- Instructors will be loaded dynamically -->
         </select>
-        <small class="form-hint" id="instructorLoadingHint" style="display:none;">Loading instructors...</small>
+        <small class="form-hint" id="instructorLoadingHint" style="display:none;">
+          Loading instructors...
+        </small>
       </div>
-      
+
       <div class="form-actions">
         <button type="submit" class="btn primary">
           <i class="fas fa-save"></i> Create Course
@@ -74,7 +79,7 @@ if (!$session->isLoggedIn() || $session->getUserRole() !== 'admin') {
       </div>
     </form>
   </div>
-  
+
   <!-- Courses Table -->
   <div class="courses-table-container">
     <h3>All Courses</h3>
@@ -125,10 +130,12 @@ if (!$session->isLoggedIn() || $session->getUserRole() !== 'admin') {
           </div>
         </div>
       </div>
-      
+
       <div class="instructors-section">
         <h4>👨‍🏫 Instructor Information</h4>
-        <p style="color: #a7b7d6; font-size: 13px;">Each course is assigned to one instructor. To change the instructor, edit the course.</p>
+        <p style="color:#a7b7d6;font-size:13px;">
+          Each course is assigned to one instructor. To change the instructor, edit the course.
+        </p>
       </div>
     </div>
   </div>
@@ -145,17 +152,18 @@ if (!$session->isLoggedIn() || $session->getUserRole() !== 'admin') {
       <form id="editCourseForm" onsubmit="saveCourseEdit(event)">
         <input type="hidden" id="editCourseId" name="course_id">
         <input type="hidden" id="editCourseCsrf" name="_csrf" value="<?= \Helpers\Csrf::token() ?>">
-        
+
         <div class="form-group">
           <label>Course Name *</label>
           <input type="text" id="editCourseName" name="name" class="form-input" required>
         </div>
-        
+
         <div class="form-group">
           <label>Description</label>
-          <textarea id="editCourseDescription" name="description" class="form-input" rows="3"></textarea>
+          <textarea id="editCourseDescription" name="description"
+                    class="form-input" rows="3"></textarea>
         </div>
-        
+
         <div class="form-group">
           <label>Instructor *</label>
           <select id="editInstructorId" name="instructor_id" class="form-input" required>
@@ -163,7 +171,7 @@ if (!$session->isLoggedIn() || $session->getUserRole() !== 'admin') {
             <!-- Instructors will be loaded dynamically -->
           </select>
         </div>
-        
+
         <div class="form-actions">
           <button type="submit" class="btn primary">💾 Save Changes</button>
           <button type="button" class="btn" onclick="closeEditCoursePanel()">Cancel</button>
@@ -173,20 +181,6 @@ if (!$session->isLoggedIn() || $session->getUserRole() !== 'admin') {
   </div>
 </div>
 
-
 <!-- Panel Overlay -->
 <div id="panelOverlay" class="panel-overlay" onclick="closeAllPanels()"></div>
-
-<script>
-  // Fallback: load admin_courses.js if page is opened directly (not via admin.php)
-  (function(){
-    if (typeof addCourse !== 'function') {
-      var s = document.createElement('script');
-      s.src = '/Plagirism_Detection_System/assets/js/admin_courses.js';
-      s.defer = true;
-      s.crossOrigin = 'anonymous';
-      document.body.appendChild(s);
-    }
-  })();
-</script>
 

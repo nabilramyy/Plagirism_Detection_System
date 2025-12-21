@@ -1,8 +1,10 @@
 <?php
 /**
  * AJAX Endpoint - Get Single Course
- * Protected: Admin only
+ * Access: Admin only
  */
+
+declare(strict_types=1);
 
 require_once __DIR__ . '/../app/Controllers/CourseController.php';
 require_once __DIR__ . '/../app/Helpers/SessionManager.php';
@@ -12,30 +14,49 @@ use Controllers\CourseController;
 use Helpers\SessionManager;
 use Middleware\AuthMiddleware;
 
-header('Content-Type: application/json');
+header('Content-Type: application/json; charset=utf-8');
 
-// Authentication check
+// ----------------------------------------------------
+// 1. Authentication / authorization (admin only)
+// ----------------------------------------------------
 $session = SessionManager::getInstance();
-$auth = new AuthMiddleware();
+$auth    = new AuthMiddleware();   // kept for consistency with your MVC setup
 
 if (!$session->isLoggedIn() || $session->getUserRole() !== 'admin') {
-    echo json_encode(['success' => false, 'message' => 'Unauthorized']);
+    echo json_encode([
+        'success' => false,
+        'message' => 'Unauthorized'
+    ]);
     exit;
 }
 
-// Get course ID
-$courseId = isset($_GET['id']) ? intval($_GET['id']) : 0;
+// ----------------------------------------------------
+// 2. Get and validate course ID (from query string)
+// ----------------------------------------------------
+$courseId = isset($_GET['id']) ? (int) $_GET['id'] : 0;
 
 if ($courseId <= 0) {
-    echo json_encode(['success' => false, 'message' => 'Invalid course ID']);
+    echo json_encode([
+        'success' => false,
+        'message' => 'Invalid course ID'
+    ]);
     exit;
 }
 
-// Initialize controller
-$controller = new CourseController();
+// ----------------------------------------------------
+// 3. Delegate to controller
+// ----------------------------------------------------
+try {
+    $controller = new CourseController();
+    $result     = $controller->getCourse($courseId);
 
-// Get course
-$result = $controller->getCourse($courseId);
-
-echo json_encode($result);
-
+    // $result should be something like:
+    // ['success' => true/false, 'course' => [...]] or an error message array
+    echo json_encode($result);
+} catch (\Throwable $e) {
+    echo json_encode([
+        'success' => false,
+        'message' => 'An unexpected error occurred while fetching the course',
+        // 'error'   => $e->getMessage() // enable only in debug mode
+    ]);
+}

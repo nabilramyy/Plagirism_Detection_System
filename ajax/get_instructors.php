@@ -1,7 +1,9 @@
 <?php
+declare(strict_types=1);
+
 /**
  * AJAX Endpoint - Get All Instructors
- * Protected: Admin only
+ * Access: Admin only
  */
 
 require_once __DIR__ . '/../app/Controllers/CourseController.php';
@@ -12,22 +14,30 @@ use Controllers\CourseController;
 use Helpers\SessionManager;
 use Middleware\AuthMiddleware;
 
-header('Content-Type: application/json');
+header('Content-Type: application/json; charset=utf-8');
 
-// Authentication check
+// 1. Authentication (admin only)
 $session = SessionManager::getInstance();
-$auth = new AuthMiddleware();
+$auth    = new AuthMiddleware();
 
 if (!$session->isLoggedIn() || $session->getUserRole() !== 'admin') {
-    echo json_encode(['success' => false, 'message' => 'Unauthorized']);
+    echo json_encode([
+        'success' => false,
+        'message' => 'Unauthorized'
+    ]);
     exit;
 }
 
-// Initialize controller
-$controller = new CourseController();
+// 2. Delegate to controller
+try {
+    $controller = new CourseController();   // uses includes/db.php and $conn
+    $result     = $controller->getInstructors(); // returns ['success'=>true,'data'=>[...]]
 
-// Get instructors
-$result = $controller->getInstructors();
-
-echo json_encode($result);
-
+    echo json_encode($result);
+} catch (\Throwable $e) {
+    echo json_encode([
+        'success' => false,
+        'message' => 'An unexpected error occurred while fetching instructors'
+        // 'error' => $e->getMessage() // enable in debug
+    ]);
+}
