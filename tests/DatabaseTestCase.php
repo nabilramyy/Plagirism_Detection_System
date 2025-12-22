@@ -69,6 +69,7 @@ abstract class DatabaseTestCase extends TestCase
     {
         $c = self::$conn;
         $c->query("SET foreign_key_checks = 0");
+        $c->query("DROP TABLE IF EXISTS chat_messages");
         $c->query("DROP TABLE IF EXISTS submissions");
         $c->query("DROP TABLE IF EXISTS courses");
         $c->query("DROP TABLE IF EXISTS users");
@@ -100,6 +101,21 @@ abstract class DatabaseTestCase extends TestCase
               created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
               PRIMARY KEY (id),
               UNIQUE KEY email (email)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+        ");
+
+        $c->query("
+            CREATE TABLE chat_messages (
+              id INT(11) NOT NULL AUTO_INCREMENT,
+              sender_id INT(11) NOT NULL,
+              receiver_id INT(11) NOT NULL,
+              message TEXT NOT NULL,
+              created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+              PRIMARY KEY (id),
+              KEY idx_sender (sender_id),
+              KEY idx_receiver (receiver_id),
+              CONSTRAINT fk_chat_sender FOREIGN KEY (sender_id) REFERENCES users (id) ON DELETE CASCADE,
+              CONSTRAINT fk_chat_receiver FOREIGN KEY (receiver_id) REFERENCES users (id) ON DELETE CASCADE
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
         ");
 
