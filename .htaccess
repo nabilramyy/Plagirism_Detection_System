@@ -1,52 +1,51 @@
 # Apache Configuration for Plagiarism Detection System
-# This file enables clean URLs and proper routing
+# Enables clean URLs and proper MVC routing through index.php
 
-# Enable Rewrite Engine
 <IfModule mod_rewrite.c>
     RewriteEngine On
-    RewriteBase /
+    
+    # Set base to your subdirectory if applicable
+    # If in root, use: RewriteBase /
+    # If in subdirectory: RewriteBase /Plagirism_Detection_System/
+    RewriteBase /Plagirism_Detection_System/
 
-    # Don't rewrite requests for existing files or directories
+    # Don't rewrite requests for existing files
     RewriteCond %{REQUEST_FILENAME} !-f
+    
+    # Don't rewrite requests for existing directories
     RewriteCond %{REQUEST_FILENAME} !-d
-    
-    # Don't rewrite requests for static assets
-    RewriteCond %{REQUEST_URI} !\.(css|js|jpg|jpeg|png|gif|svg|ico|woff|woff2|ttf|eot|pdf|docx|html)$ [NC]
-    
-    # Don't rewrite requests for ajax directory (direct access needed)
-    RewriteCond %{REQUEST_URI} !^/ajax/
-    
-    # Don't rewrite requests for app directory files (controllers, etc.)
-    # Allow direct access to controllers and other app files
-    RewriteCond %{REQUEST_URI} !^/app/
-    
-    # Don't rewrite requests for includes directory
-    RewriteCond %{REQUEST_URI} !^/includes/
-    
-    # Don't rewrite requests for assets directory
-    RewriteCond %{REQUEST_URI} !^/assets/
-    
-    # Don't rewrite requests for vendor directory
-    RewriteCond %{REQUEST_URI} !^/vendor/
-    
-    # Don't rewrite requests for ml directory
-    RewriteCond %{REQUEST_URI} !^/ml/
-    
-    # Don't rewrite requests for storage directory
-    RewriteCond %{REQUEST_URI} !^/storage/
-    
-    # Don't rewrite requests for tests directory
-    RewriteCond %{REQUEST_URI} !^/tests/
     
     # Route everything else through index.php
     RewriteRule ^(.*)$ index.php [QSA,L]
 </IfModule>
 
-# Security: Prevent direct access to sensitive files
-<FilesMatch "\.(env|log|ini|conf|bak|sql)$">
+# Security Headers
+<IfModule mod_headers.c>
+    # Prevent clickjacking
+    Header always set X-Frame-Options "SAMEORIGIN"
+    
+    # Prevent MIME type sniffing
+    Header always set X-Content-Type-Options "nosniff"
+    
+    # Enable XSS protection
+    Header always set X-XSS-Protection "1; mode=block"
+    
+    # Referrer policy
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
+
+# Prevent access to sensitive files
+<FilesMatch "\.(env|log|ini|conf|bak|sql|git|gitignore|md)$">
     Order allow,deny
     Deny from all
 </FilesMatch>
+
+# Prevent direct access to sensitive directories
+<IfModule mod_alias.c>
+    RedirectMatch 403 /\.git
+    RedirectMatch 403 /\.env
+    RedirectMatch 403 /storage/logs
+</IfModule>
 
 # Prevent directory listing
 Options -Indexes
@@ -54,21 +53,49 @@ Options -Indexes
 # Set default charset
 AddDefaultCharset UTF-8
 
-# Enable compression for better performance
+# Enable GZIP compression
 <IfModule mod_deflate.c>
-    AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css text/javascript application/javascript application/json
+    AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css text/javascript
+    AddOutputFilterByType DEFLATE application/javascript application/json application/xml
+    AddOutputFilterByType DEFLATE image/svg+xml
 </IfModule>
 
 # Browser caching for static assets
 <IfModule mod_expires.c>
     ExpiresActive On
+    
+    # Images
     ExpiresByType image/jpg "access plus 1 year"
     ExpiresByType image/jpeg "access plus 1 year"
     ExpiresByType image/gif "access plus 1 year"
     ExpiresByType image/png "access plus 1 year"
     ExpiresByType image/svg+xml "access plus 1 year"
+    ExpiresByType image/x-icon "access plus 1 year"
+    
+    # Fonts
+    ExpiresByType font/woff "access plus 1 year"
+    ExpiresByType font/woff2 "access plus 1 year"
+    ExpiresByType font/ttf "access plus 1 year"
+    ExpiresByType application/font-woff "access plus 1 year"
+    
+    # CSS and JavaScript
     ExpiresByType text/css "access plus 1 month"
     ExpiresByType application/javascript "access plus 1 month"
+    
+    # Documents
     ExpiresByType application/pdf "access plus 1 month"
+    ExpiresByType application/vnd.openxmlformats-officedocument.wordprocessingml.document "access plus 1 month"
 </IfModule>
 
+# Error documents
+ErrorDocument 404 /Plagirism_Detection_System/index.php
+ErrorDocument 403 /Plagirism_Detection_System/index.php
+ErrorDocument 500 /Plagirism_Detection_System/index.php
+
+# PHP settings (if allowed)
+<IfModule mod_php7.c>
+    php_value upload_max_filesize 10M
+    php_value post_max_size 10M
+    php_value max_execution_time 300
+    php_value max_input_time 300
+</IfModule>

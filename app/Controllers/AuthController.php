@@ -15,6 +15,7 @@ use Models\User;
 use Helpers\SessionManager;
 use Middleware\AuthMiddleware;
 
+define('BASE_URL', '/Plagirism_Detection_System');
 class AuthController
 {
     private $user;
@@ -34,7 +35,7 @@ class AuthController
     public function login()
     {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            header("Location: /Plagirism_Detection_System/signup.php");
+            header("Location: " . BASE_URL . "/login");
             exit();
         }
 
@@ -97,17 +98,17 @@ class AuthController
         $this->auth->logAuthAttempt(true, $email, $ipAddress);
 
         // Redirect based on role
-        switch ($this->user->getRole()) {
-            case 'admin':
-                $this->alertRedirect("Welcome Admin!", "/Plagirism_Detection_System/admin.php");
-                break;
-            case 'instructor':
-                $this->alertRedirect("Welcome Instructor!", "/Plagirism_Detection_System/app/Views/instructor/dashboard.php");
-                break;
-            default:
-                $this->alertRedirect("Welcome Student!", "/Plagirism_Detection_System/app/Views/student/student_index.php");
-                break;
-        }
+         switch ($this->user->getRole()) {
+        case 'admin':
+            $this->alertRedirect("Welcome Admin!", BASE_URL . "/admin");
+            break;
+        case 'instructor':
+            $this->alertRedirect("Welcome Instructor!", BASE_URL . "/instructor");
+            break;
+        default:
+            $this->alertRedirect("Welcome Student!", BASE_URL . "/student");
+            break;
+    }
     }
 
     /**
@@ -116,7 +117,7 @@ class AuthController
     public function signup()
     {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            header("Location: /Plagirism_Detection_System/signup.php");
+            header("Location: " . BASE_URL . "/login");
             exit();
         }
 

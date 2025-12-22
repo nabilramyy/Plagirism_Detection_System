@@ -11,11 +11,10 @@ use Helpers\SessionManager;
 // Get session instance
 $session = SessionManager::getInstance();
 
-// Destroy session
+// Destroy session (SessionManager already handles cookies/session)
 $session->destroy();
 
-
-// Redirect to login page
-header("Location: /plagirism_detection_system/signup.php?logout=success");
+// Redirect through the main router so all paths stay consistent
+header("Location: /Plagirism_Detection_System/logout");
 exit();
 ?>
