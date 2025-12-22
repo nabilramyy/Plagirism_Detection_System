@@ -21,7 +21,7 @@ $session = SessionManager::getInstance();
 $auth = new AuthMiddleware();
 
 if (!$session->isLoggedIn() || $session->getUserRole() !== 'admin') {
-    header("Location: " . BASE_URL . "/signup");
+    header('Location: ' . BASE_URL . '/signup');
     exit();
 }
 ?>
