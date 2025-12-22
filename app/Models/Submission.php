@@ -63,53 +63,64 @@ class Submission
     /**
      * Create a new submission
      */
-    public function create(array $data): int
-    {
-        $sql = "
-            INSERT INTO submissions 
-            (user_id, course_id, instructor_id, teacher, text_content, file_path, stored_name, file_size, similarity, exact_match, partial_match, status, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', NOW())
-        ";
+public function create(array $data): int
+{
+    $sql = "
+        INSERT INTO submissions 
+        (user_id, course_id, instructor_id, teacher, text_content, file_path, stored_name, file_size, similarity, exact_match, partial_match, status, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', NOW())
+    ";
 
-        $stmt = $this->conn->prepare($sql);
-        if (!$stmt)
-            die("Prepare failed: " . $this->conn->error);
-
-        // Get course_id - use provided one or get/create general course
-        if (isset($data['course_id']) && $data['course_id'] > 0) {
-            $course_id = intval($data['course_id']);
-        } else {
-            // For general submissions, get or create a "General Submission" course
-            $course_id = $this->getOrCreateGeneralCourse();
-        }
-
-        $teacher = $data['teacher'] ?? null;
-        $instructor_id = isset($data['instructor_id']) && $data['instructor_id'] > 0
-            ? intval($data['instructor_id'])
-            : 0;
-
-        $stmt->bind_param(
-            "iiissssiiii",
-            $data['user_id'],
-            $course_id,
-            $instructor_id,
-            $teacher,
-            $data['text_content'],
-            $data['file_path'],
-            $data['stored_name'],
-            $data['file_size'],
-            $data['similarity'],
-            $data['exact_match'],
-            $data['partial_match']
-        );
-
-        if (!$stmt->execute())
-            die("Execute failed: " . $stmt->error);
-
-        $id = $stmt->insert_id;
-        $stmt->close();
-        return $id;
+    $stmt = $this->conn->prepare($sql);
+    if (!$stmt) {
+        die("Prepare failed: " . $this->conn->error);
     }
+
+    // course_id: use given id or NULL for general submissions
+    $course_id = isset($data['course_id']) && $data['course_id'] > 0
+        ? (int)$data['course_id']
+        : null;   // <‑‑ NULL, not 0
+
+    // instructor_id: NULL when none
+    $instructor_id = isset($data['instructor_id']) && $data['instructor_id'] > 0
+        ? (int)$data['instructor_id']
+        : null;   // <‑‑ NULL, not 0
+
+    $user_id       = (int)$data['user_id'];
+    $teacher       = $data['teacher']      ?? null;
+    $text_content  = $data['text_content'] ?? '';
+    $file_path     = $data['file_path']    ?? null;
+    $stored_name   = $data['stored_name']  ?? null;
+    $file_size     = (int)($data['file_size'] ?? 0);
+    $similarity    = (int)($data['similarity'] ?? 0);
+    $exact_match   = (int)($data['exact_match'] ?? 0);
+    $partial_match = (int)($data['partial_match'] ?? 0);
+
+    // bind: mysqli will send real SQL NULL when the PHP variable is null
+    $stmt->bind_param(
+        "iiissssiiii",
+        $user_id,
+        $course_id,
+        $instructor_id,
+        $teacher,
+        $text_content,
+        $file_path,
+        $stored_name,
+        $file_size,
+        $similarity,
+        $exact_match,
+        $partial_match
+    );
+
+    if (!$stmt->execute()) {
+        die("Execute failed: " . $stmt->error);
+    }
+
+    $id = $stmt->insert_id;
+    $stmt->close();
+    return $id;
+}
+
 
     /**
      * Get submissions for a user with optional status

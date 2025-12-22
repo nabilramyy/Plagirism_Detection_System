@@ -40,97 +40,132 @@ class SubmissionController {
     /**
      * Handle submission
      */
-    public function submit(): array {
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') { http_response_code(405); exit; }
-        if (!Csrf::verify($_POST['_csrf'] ?? '')) die('Invalid CSRF token');
-
-        $text = Validator::sanitize($_POST['textInput'] ?? '');
-        $instructorId = intval($_POST['instructorSelect'] ?? 0);
-        $userId = intval($_POST['user_id'] ?? 0);
-        
-        if ($userId <= 0) {
-            die('Invalid user ID. Please log in again.');
-        }
-
-        // Get instructor name for teacher field (for backward compatibility)
-        // If no instructor selected, teacher will be null (general submission)
-        $teacher = null;
-        $courseId = null;
-        
-        if ($instructorId > 0) {
-            $instructorStmt = $this->conn->prepare("SELECT name FROM users WHERE id = ? AND role='instructor'");
-            $instructorStmt->bind_param("i", $instructorId);
-            $instructorStmt->execute();
-            $instructorResult = $instructorStmt->get_result();
-            if ($instructorRow = $instructorResult->fetch_assoc()) {
-                $teacher = $instructorRow['name'];
-            }
-            $instructorStmt->close();
-
-            // Try to resolve the instructor's course (one instructor = one course assumption)
-            $courseStmt = $this->conn->prepare("SELECT id FROM courses WHERE instructor_id = ? LIMIT 1");
-            if ($courseStmt) {
-                $courseStmt->bind_param("i", $instructorId);
-                $courseStmt->execute();
-                $courseResult = $courseStmt->get_result();
-                if ($courseRow = $courseResult->fetch_assoc()) {
-                    $courseId = intval($courseRow['id']);
-                }
-                $courseStmt->close();
-            }
-        }
-
-        $fileInfo = null;
-        if (isset($_FILES['fileInput']) && $_FILES['fileInput']['name']) {
-            try { $fileInfo = FileStorage::store($_FILES['fileInput']); } 
-            catch (\Exception $ex) { die("File upload error: ".$ex->getMessage()); }
-
-            $textFromFile = $this->extractFileText($fileInfo['path']);
-            if ($textFromFile) $text .= ' ' . $textFromFile;
-        }
-
-        // Check plagiarism and get matching words
-        $plagData = $this->checkPlagiarism($text);
-
-        // Get plagiarism threshold from settings
-        $settings = new Settings($this->conn);
-        $threshold = floatval($settings->get('plagiarism_threshold', 50));
-        $similarity = $plagData['plagiarised'];
-        
-        // Check if similarity exceeds threshold
-        $exceedsThreshold = $similarity > $threshold;
-        $alertMessage = $exceedsThreshold 
-            ? "⚠️ WARNING: This submission has a similarity score of {$similarity}%, which exceeds the threshold of {$threshold}%!"
-            : null;
-
-        $data = [
-            'user_id' => $userId,
-            'course_id' => $courseId > 0 ? $courseId : 0, // Use 0 for general submissions (course_id is NOT NULL in DB)
-            'instructor_id' => $instructorId > 0 ? $instructorId : null,
-            'teacher' => $teacher,
-            'text_content' => $text,
-            'file_path' => $fileInfo['path'] ?? null,
-            'stored_name' => $fileInfo['stored'] ?? null,
-            'file_size' => $fileInfo['size'] ?? 0,
-            'similarity' => $similarity,
-            'exact_match' => $plagData['exact'],
-            'partial_match' => $plagData['partial']
-        ];
-
-        $id = $this->submission->create($data);
-        $reportPath = $this->generateReport($id, $plagData, $text, $plagData['matchingWords']);
-
-        return [
-            'submission_id' => $id,
-            'plagiarised' => $similarity,
-            'exact' => $plagData['exact'],
-            'partial' => $plagData['partial'],
-            'reportPath' => $reportPath,
-            'exceeds_threshold' => $exceedsThreshold,
-            'threshold' => $threshold,
-            'alert_message' => $alertMessage
-        ];
+    public function submit(): array
+{
+    // Only POST
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        http_response_code(405);
+        exit;
     }
+
+    // CSRF
+    if (!Csrf::verify($_POST['_csrf'] ?? '')) {
+        die('Invalid CSRF token');
+    }
+
+    // Basic input
+    $text        = Validator::sanitize($_POST['textInput'] ?? '');
+    $instructorIdRaw = $_POST['instructorSelect'] ?? null;
+    $userId      = intval($_POST['user_id'] ?? 0);
+
+    if ($userId <= 0) {
+        die('Invalid user ID. Please log in again.');
+    }
+
+    // Normalize instructor id: null if empty/0
+    $instructorId = null;
+    if ($instructorIdRaw !== null && $instructorIdRaw !== '' && intval($instructorIdRaw) > 0) {
+        $instructorId = intval($instructorIdRaw);
+    }
+
+    $teacher  = null;
+    $courseId = null;   // will stay NULL for general submissions
+
+    // If an instructor is selected, fetch instructor + course
+    if ($instructorId !== null) {
+        // 1) Check that instructor exists
+        $instructorStmt = $this->conn->prepare(
+            "SELECT name FROM users WHERE id = ? AND role = 'instructor'"
+        );
+        $instructorStmt->bind_param("i", $instructorId);
+        $instructorStmt->execute();
+        $instructorResult = $instructorStmt->get_result();
+        if ($instructorRow = $instructorResult->fetch_assoc()) {
+            $teacher = $instructorRow['name'];
+        } else {
+            // Invalid instructor id – do NOT insert a broken FK
+            $instructorStmt->close();
+            die('Selected instructor does not exist.');
+        }
+        $instructorStmt->close();
+
+        // 2) Optional: resolve instructor's course
+        $courseStmt = $this->conn->prepare(
+            "SELECT id FROM courses WHERE instructor_id = ? LIMIT 1"
+        );
+        if ($courseStmt) {
+            $courseStmt->bind_param("i", $instructorId);
+            $courseStmt->execute();
+            $courseResult = $courseStmt->get_result();
+            if ($courseRow = $courseResult->fetch_assoc()) {
+                $courseId = intval($courseRow['id']);   // valid FK or stays NULL
+            }
+            $courseStmt->close();
+        }
+    }
+
+    // File upload
+    $fileInfo = null;
+    if (isset($_FILES['fileInput']) && !empty($_FILES['fileInput']['name'])) {
+        try {
+            $fileInfo = FileStorage::store($_FILES['fileInput']);
+        } catch (\Exception $ex) {
+            die("File upload error: " . $ex->getMessage());
+        }
+
+        $textFromFile = $this->extractFileText($fileInfo['path']);
+        if ($textFromFile) {
+            $text .= ' ' . $textFromFile;
+        }
+    }
+
+    // Plagiarism
+    $plagData = $this->checkPlagiarism($text);
+
+    // Threshold
+    $settings   = new Settings($this->conn);
+    $threshold  = floatval($settings->get('plagiarism_threshold', 50));
+    $similarity = $plagData['plagiarised'];
+
+    $exceedsThreshold = $similarity > $threshold;
+    $alertMessage = $exceedsThreshold
+        ? "⚠️ WARNING: This submission has a similarity score of {$similarity}%, which exceeds the threshold of {$threshold}%!"
+        : null;
+
+    // Build data: use NULL (not 0) for general submissions
+    $data = [
+        'user_id'       => $userId,                 // must exist in users.id
+        'course_id'     => $courseId,               // NULL for general
+        'instructor_id' => $instructorId,           // NULL or valid users.id
+        'teacher'       => $teacher,
+        'text_content'  => $text,
+        'file_path'     => $fileInfo['path']   ?? null,
+        'stored_name'   => $fileInfo['stored'] ?? null,
+        'file_size'     => $fileInfo['size']   ?? 0,
+        'similarity'    => $similarity,
+        'exact_match'   => $plagData['exact'],
+        'partial_match' => $plagData['partial'],
+    ];
+
+    // DEBUG (optional while testing)
+    // error_log('SUBMIT DATA: ' . print_r($data, true));
+
+    // Create submission (make sure create() passes null as SQL NULL)
+    $id = $this->submission->create($data);
+
+    $reportPath = $this->generateReport($id, $plagData, $text, $plagData['matchingWords']);
+
+    return [
+        'submission_id'     => $id,
+        'plagiarised'       => $similarity,
+        'exact'             => $plagData['exact'],
+        'partial'           => $plagData['partial'],
+        'reportPath'        => $reportPath,
+        'exceeds_threshold' => $exceedsThreshold,
+        'threshold'         => $threshold,
+        'alert_message'     => $alertMessage,
+    ];
+}
 
     /**
      * Download report
